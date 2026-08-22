@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<!--/*
+  Fragments de structure du back-office.
+
+  Tout ecran admin est assemble a partir d'ici : aucune page ne redefinit son <head>, sa
+  navigation ni sa barre de titre. Ajouter une rubrique = une ligne dans le fragment nav,
+  et toutes les pages en heritent.
+*/-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+
+<!--/* Le mark Byzi, recadre depuis le logo officiel (static/admin/images/logo.png).
+       Le decoupage est fait en CSS (.brand__logo) plutot qu'en produisant un second fichier :
+       il n'y a ainsi qu'UN seul fichier de logo a remplacer le jour ou la charte evolue. */-->
+<span th:fragment="mark" class="brand__logo">
+    <img th:src="@{/admin/images/logo.png}" alt="" aria-hidden="true">
+</span>
+
+<head th:fragment="pageHead(pageTitle)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!--/* Le back-office manipule des donnees personnelles : il ne doit jamais etre indexe. */-->
+    <meta name="robots" content="noindex, nofollow">
+    <title th:text="|${pageTitle} - Byzi Admin|">Byzi Admin</title>
+    <link rel="stylesheet" th:href="@{/admin/css/byzi-admin.css}">
+</head>
+
+<nav th:fragment="mainNav(active)" class="nav">
+    <a th:href="@{/admin}" class="nav__item"
+       th:classappend="${active == 'dashboard'} ? ' nav__item--active'">
+        <svg class="nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/>
+            <rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>
+        </svg>
+        <span>Tableau de bord</span>
+    </a>
+    <a th:href="@{/admin/users}" class="nav__item"
+       th:classappend="${active == 'users'} ? ' nav__item--active'">
+        <svg class="nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+        </svg>
+        <span>Utilisateurs</span>
+    </a>
+    <a th:href="@{/admin/audit}" class="nav__item"
+       th:classappend="${active == 'audit'} ? ' nav__item--active'">
+        <svg class="nav__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <span>Journal d'audit</span>
+    </a>
+</nav>
+
+<aside th:fragment="sidebar(active)" class="sidebar">
+    <div class="brand">
+        <span th:replace="~{admin/fragments/layout :: mark}"></span>
+        <div>
+            <div class="brand__name">Byzi</div>
+            <div class="brand__sub">Back-office</div>
+        </div>
+    </div>
+
+    <nav th:replace="~{admin/fragments/layout :: mainNav(${active})}"></nav>
+
+    <div class="sidebar__footer">
+        <div class="sidebar__user" sec:authentication="name">admin@byzi.app</div>
+        <!--/* Deconnexion en POST : un GET serait declenchable par une simple image
+               distante et permettrait de deconnecter un admin a son insu. */-->
+        <form th:action="@{/admin/logout}" method="post">
+            <button type="submit" class="sidebar__logout">Se deconnecter</button>
+        </form>
+    </div>
+</aside>
+
+<header th:fragment="topbar(eyebrow, title, subtitle)" class="topbar">
+    <div>
+        <div class="topbar__eyebrow" th:text="${eyebrow}">SECTION</div>
+        <h1 class="topbar__title" th:text="${title}">Titre</h1>
+        <p class="topbar__subtitle" th:if="${subtitle}" th:text="${subtitle}">Sous-titre</p>
+    </div>
+    <div th:if="${#bools.isTrue(false)}"></div>
+</header>
+
+<!--/* Badge de statut d'abonnement. Centralise ici pour que la correspondance
+       statut -> couleur fonctionnelle soit definie a UN seul endroit. */-->
+<span th:fragment="statusBadge(status)" class="badge"
+      th:classappend="${status?.name() == 'ACTIVE'} ? ' badge--active' :
+                      (${status?.name() == 'TRIAL'} ? ' badge--trial' :
+                      (${status?.name() == 'GRACE_PERIOD'} ? ' badge--grace' : ' badge--expired'))"
+      th:text="${status?.name() == 'ACTIVE'} ? 'Actif' :
+               (${status?.name() == 'TRIAL'} ? 'Essai' :
+               (${status?.name() == 'GRACE_PERIOD'} ? 'Impaye' : 'Expire'))">Statut</span>
+
+<div th:fragment="empty(title, hint)" class="empty">
+    <div class="empty__title" th:text="${title}">Rien a afficher</div>
+    <div class="empty__hint" th:text="${hint}"></div>
+</div>
+
+<!--/* Pagination reutilisable : conserve les parametres de recherche courants pour ne pas
+       reinitialiser le filtre en changeant de page. */-->
+<div th:fragment="pagination(page, baseUrl, query)" class="pagination" th:if="${page.totalPages > 1}">
+    <div class="pagination__info"
+         th:text="|Page ${page.number + 1} sur ${page.totalPages} - ${page.totalElements} resultat(s)|">
+    </div>
+    <div class="pagination__links">
+        <a class="pagination__link"
+           th:classappend="${page.first} ? ' pagination__link--disabled'"
+           th:href="@{{url}(url=${baseUrl}, page=${page.number - 1}, q=${query})}">Precedent</a>
+        <a class="pagination__link"
+           th:classappend="${page.last} ? ' pagination__link--disabled'"
+           th:href="@{{url}(url=${baseUrl}, page=${page.number + 1}, q=${query})}">Suivant</a>
+    </div>
+</div>
+
+</html>

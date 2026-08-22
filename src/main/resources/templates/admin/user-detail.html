@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/layout :: pageHead('Detail utilisateur')}"></head>
+<body>
+<div class="layout">
+    <aside th:replace="~{admin/fragments/layout :: sidebar('users')}"></aside>
+
+    <div class="main" th:object="${detail}">
+        <header th:replace="~{admin/fragments/layout :: topbar( 'Compte', *{user.email} ?: 'E-mail masque', 'Fiche complete et actions de support')}"></header>
+
+        <div class="content">
+            <div class="alert alert--success" th:if="${success}" th:text="${success}"></div>
+            <div class="alert alert--error" th:if="${error}" th:text="${error}"></div>
+
+            <div class="grid grid--kpi" style="margin-bottom: 22px;">
+                <div class="kpi">
+                    <div class="kpi__label">Streak courant</div>
+                    <div class="kpi__value kpi__value--success" th:text="*{currentStreak}">0</div>
+                    <div class="kpi__hint">jours consecutifs</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi__label">Sessions de focus</div>
+                    <div class="kpi__value kpi__value--data" th:text="*{focusSessionCount}">0</div>
+                    <div class="kpi__hint">depuis l'inscription</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi__label">Abonnement</div>
+                    <div style="margin-top: 6px">
+                        <span th:replace="~{admin/fragments/layout :: statusBadge(*{user.subscriptionStatus})}"></span>
+                    </div>
+                    <div class="kpi__hint"
+                         th:text="*{user.subscriptionExpiresAt} != null
+                                  ? |jusqu'au ${#temporals.format(detail.user.subscriptionExpiresAt, 'dd/MM/yyyy')}|
+                                  : 'pas de date de fin'"></div>
+                </div>
+            </div>
+
+            <div class="grid grid--split">
+                <div style="display:flex; flex-direction:column; gap:22px;">
+                    <div class="card">
+                        <div class="card__header"><h2 class="card__title">Identite</h2></div>
+                        <div class="card__body">
+                            <dl class="dl">
+                                <dt>Identifiant</dt>
+                                <dd class="table__mono" th:text="*{user.id}"></dd>
+                                <dt>E-mail</dt>
+                                <dd th:text="*{user.email} ?: 'masque (Sign in with Apple)'"></dd>
+                                <dt>Role</dt>
+                                <dd th:text="*{user.role}"></dd>
+                                <dt>Inscription</dt>
+                                <dd th:text="*{user.createdAt} != null
+                                    ? ${#temporals.format(detail.user.createdAt, 'dd/MM/yyyy HH:mm')} : '-'"></dd>
+                                <dt>Derniere connexion</dt>
+                                <dd th:text="*{user.lastLoginAt} != null
+                                    ? ${#temporals.format(detail.user.lastLoginAt, 'dd/MM/yyyy HH:mm')} : 'jamais'"></dd>
+                            </dl>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card__header"><h2 class="card__title">Historique d'abonnement</h2></div>
+                        <div class="card__body card__body--flush">
+                            <div class="table-wrap" th:if="*{!subscriptionHistory.isEmpty()}">
+                                <table class="table">
+                                    <thead>
+                                    <tr><th>Date</th><th>Evenement</th><th>Statut resultant</th></tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr th:each="e : *{subscriptionHistory}">
+                                        <td class="table__mono"
+                                            th:text="${#temporals.format(e.occurredAt, 'dd/MM/yyyy HH:mm')}"></td>
+                                        <td th:text="${e.eventType}"></td>
+                                        <td>
+                                            <span th:replace="~{admin/fragments/layout :: statusBadge(${e.resultingStatus})}"></span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div th:if="*{subscriptionHistory.isEmpty()}"
+                                 th:replace="~{admin/fragments/layout :: empty( 'Aucun evenement RevenueCat', 'Ce compte n’a encore declenche aucun webhook d’abonnement.')}"></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card__header"><h2 class="card__title">Actions du support sur ce compte</h2></div>
+                        <div class="card__body card__body--flush">
+                            <ul class="timeline" th:if="*{!auditTrail.isEmpty()}">
+                                <li class="timeline__item" th:each="a : *{auditTrail}">
+                                    <span class="timeline__when"
+                                          th:text="${#temporals.format(a.occurredAt, 'dd/MM/yyyy HH:mm')}"></span>
+                                    <span>
+                                        <span class="timeline__what" th:text="${a.action}"></span>
+                                        <span class="timeline__who" th:text="| - ${a.adminLabel}|"></span>
+                                        <div class="timeline__who" th:if="${a.details}" th:text="${a.details}"></div>
+                                    </span>
+                                </li>
+                            </ul>
+                            <div th:if="*{auditTrail.isEmpty()}"
+                                 th:replace="~{admin/fragments/layout :: empty( 'Aucune intervention', 'Ce compte n’a jamais fait l’objet d’une action admin.')}"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card__header"><h2 class="card__title">Actions</h2></div>
+                    <div class="card__body" style="display:flex; flex-direction:column; gap:20px;">
+
+                        <form method="post"
+                              th:action="@{/admin/users/{id}/extend-trial(id=*{user.id})}"
+                              class="form-row">
+                            <div class="field">
+                                <label class="field__label" for="days">Prolonger l'acces (jours)</label>
+                                <input class="input" type="number" id="days" name="days"
+                                       min="1" max="90" value="7" required>
+                            </div>
+                            <button type="submit" class="btn btn--primary btn--sm">Prolonger</button>
+                        </form>
+
+                        <form method="post" th:action="@{/admin/users/{id}/mark-refunded(id=*{user.id})}">
+                            <div class="field">
+                                <label class="field__label" for="reason">Motif du remboursement</label>
+                                <input class="input" type="text" id="reason" name="reason"
+                                       placeholder="Ex. remboursement App Store">
+                            </div>
+                            <button type="submit" class="btn btn--sm" style="margin-top:10px">
+                                Marquer comme rembourse
+                            </button>
+                        </form>
+
+                        <!--/* Story 09.6 - suppression RGPD. Irreversible : confirmation
+                               explicite cote navigateur, en plus de l'audit cote serveur. */-->
+                        <form method="post" th:action="@{/admin/users/{id}/delete(id=*{user.id})}"
+                              onsubmit="return confirm('Supprimer definitivement ce compte et toutes ses donnees ? Cette action est irreversible.');">
+                            <div class="field__label" style="margin-bottom:8px">Zone sensible</div>
+                            <button type="submit" class="btn btn--danger btn--sm btn--block">
+                                Supprimer le compte (RGPD)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

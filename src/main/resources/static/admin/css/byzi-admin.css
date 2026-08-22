@@ -1,0 +1,387 @@
+/* ==========================================================================
+   Byzi - Back-office admin
+   Feuille de style unique, ecrite a la main plutot que basee sur un framework :
+   un Bootstrap/Tailwind par defaut donnerait exactement le rendu generique que la
+   charte cherche a eviter, et il faudrait de toute facon tout surcharger.
+
+   Regles issues du Playbook de marque (section 01) :
+   - Le bleu #2E7AED est l'accent UNIQUE. Il n'est jamais melange aux couleurs
+     fonctionnelles, qui sont reservees aux etats de donnees (streak, focus,
+     alerte, attention) et n'habillent jamais un element d'interface.
+   - La hierarchie se marque par la TAILLE, pas par la couleur.
+   - Fond quasi-noir, surfaces graphite, texte blanc.
+   ========================================================================== */
+
+:root {
+    /* Marque */
+    --byzi-blue: #2E7AED;
+    --near-black: #0B0D10;
+    --graphite: #1E2228;
+    --white: #FFFFFF;
+
+    /* Fonctionnelles - etats de donnees uniquement */
+    --fn-green: #16F686;   /* streak / succes */
+    --fn-cyan: #5BEEFC;    /* focus / data */
+    --fn-red: #FF4757;     /* alerte / depassement */
+    --fn-yellow: #EEE638;  /* attention */
+
+    /* Derivees : uniquement des opacites du blanc, pour ne pas introduire de teinte
+       parasite qui viendrait concurrencer l'accent bleu. */
+    --text-primary: var(--white);
+    --text-secondary: rgba(255, 255, 255, 0.62);
+    --text-muted: rgba(255, 255, 255, 0.38);
+    --border: rgba(255, 255, 255, 0.09);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --surface-hover: rgba(255, 255, 255, 0.04);
+
+    --radius: 10px;
+    --radius-sm: 6px;
+    --sidebar-width: 240px;
+
+    /* Gilroy est une police commerciale : aucun fichier n'est distribue avec le projet.
+       La pile de repli privilegie des sans-serif geometriques proches (Avenir, Century
+       Gothic) avant de retomber sur la police systeme. Deposer Gilroy-Bold.woff2 et
+       Gilroy-Regular.woff2 dans /static/admin/fonts/ et decommenter les @font-face
+       ci-dessous suffit a retrouver la typographie exacte de la marque. */
+    --font-stack: "Gilroy", "Avenir Next", "Avenir", "Century Gothic", "Futura",
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+/*
+@font-face {
+    font-family: "Gilroy";
+    src: url("/admin/fonts/Gilroy-Regular.woff2") format("woff2");
+    font-weight: 400;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Gilroy";
+    src: url("/admin/fonts/Gilroy-Bold.woff2") format("woff2");
+    font-weight: 700;
+    font-display: swap;
+}
+*/
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    background: var(--near-black);
+    color: var(--text-primary);
+    font-family: var(--font-stack);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* --------------------------------------------------------------------------
+   Structure
+   -------------------------------------------------------------------------- */
+
+.layout { display: flex; min-height: 100vh; }
+
+.sidebar {
+    width: var(--sidebar-width);
+    flex-shrink: 0;
+    background: var(--graphite);
+    border-right: 1px solid var(--border);
+    padding: 26px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; }
+
+/* Le fichier logo.png fourni contient le mark, le wordmark "Byzi" ET la tagline, sur un
+   aplat #0B0D10. Dans la sidebar, on ne veut que le mark : affiche en entier a 30px, le
+   texte de l'image serait illisible et ferait doublon avec le wordmark en HTML juste a cote.
+   D'ou ce recadrage - le conteneur masque, l'image est agrandie et recentree sur le mark. */
+.brand__logo {
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+}
+.brand__logo img {
+    position: absolute;
+    /* Le mark occupe 35,3 % de la hauteur du fichier : 1 / 0,353 = 2,833. */
+    width: 283.3%;
+    height: 283.3%;
+    /* Recentrage sur le mark, dont le centre est a (49,2 % ; 38,9 %) du fichier. */
+    left: -89.4%;
+    top: -60.2%;
+    /* Le PNG est opaque : sur le graphite de la sidebar, son fond quasi-noir dessinerait un
+       carre sombre. En mode "screen", un fond quasi-noir devient neutre et laisse passer la
+       surface du dessous, tandis que le bleu de marque reste intact - equivalent visuel d'un
+       detourage, sans retoucher le fichier fourni. */
+    mix-blend-mode: screen;
+}
+.brand__name { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; }
+.brand__sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    margin-top: 1px;
+}
+
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav__item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: 14px;
+    transition: background 0.13s ease, color 0.13s ease;
+}
+.nav__item:hover { background: var(--surface-hover); color: var(--text-primary); }
+/* Etat actif : c'est ici, et pratiquement ici seulement, que l'accent bleu apparait
+   dans la navigation - un accent unique n'a de force que s'il reste rare. */
+.nav__item--active { background: rgba(46, 122, 237, 0.13); color: var(--byzi-blue); }
+.nav__item--active .nav__icon { opacity: 1; }
+.nav__icon { width: 17px; height: 17px; opacity: 0.75; flex-shrink: 0; }
+
+.sidebar__footer { margin-top: auto; padding: 0 8px; }
+.sidebar__user { font-size: 13px; color: var(--text-secondary); word-break: break-all; }
+.sidebar__logout {
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--text-muted);
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font-family: inherit;
+}
+.sidebar__logout:hover { color: var(--fn-red); }
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+.topbar {
+    padding: 26px 34px 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+.topbar__eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--byzi-blue);
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+/* Hierarchie par la taille : le titre de page ne change pas de couleur, il change
+   d'echelle. */
+.topbar__title { font-size: 27px; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+.topbar__subtitle { color: var(--text-secondary); font-size: 14px; margin: 5px 0 0; }
+
+.content { padding: 26px 34px 44px; }
+
+/* --------------------------------------------------------------------------
+   Cartes & KPI
+   -------------------------------------------------------------------------- */
+
+.card {
+    background: var(--graphite);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+.card__header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+.card__title { font-size: 15px; font-weight: 700; margin: 0; }
+.card__body { padding: 20px; }
+.card__body--flush { padding: 0; }
+
+.grid { display: grid; gap: 16px; }
+.grid--kpi { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.grid--split { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); align-items: start; }
+
+.kpi { background: var(--graphite); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; }
+.kpi__label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 9px;
+}
+.kpi__value { font-size: 31px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.1; }
+.kpi__hint { font-size: 12.5px; color: var(--text-secondary); margin-top: 6px; }
+/* Les couleurs fonctionnelles ne servent qu'a qualifier une DONNEE, jamais a decorer.
+   Elles sont donc portees par la valeur du KPI, pas par la carte. */
+.kpi__value--data { color: var(--fn-cyan); }
+.kpi__value--success { color: var(--fn-green); }
+.kpi__value--alert { color: var(--fn-red); }
+
+/* --------------------------------------------------------------------------
+   Tableaux
+   -------------------------------------------------------------------------- */
+
+.table-wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th {
+    text-align: left;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-weight: 700;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+.table td { padding: 13px 20px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.table tbody tr:last-child td { border-bottom: 0; }
+.table tbody tr { transition: background 0.11s ease; }
+.table tbody tr:hover { background: var(--surface-hover); }
+.table__mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; color: var(--text-secondary); }
+.table__strong { font-weight: 700; }
+
+/* --------------------------------------------------------------------------
+   Badges d'etat
+   -------------------------------------------------------------------------- */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px 3px 7px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* Un statut d'abonnement est une donnee : il a droit aux couleurs fonctionnelles. */
+.badge--active { color: var(--fn-green); background: rgba(22, 246, 134, 0.1); border-color: rgba(22, 246, 134, 0.22); }
+.badge--trial { color: var(--fn-cyan); background: rgba(91, 238, 252, 0.1); border-color: rgba(91, 238, 252, 0.22); }
+.badge--grace { color: var(--fn-yellow); background: rgba(238, 230, 56, 0.1); border-color: rgba(238, 230, 56, 0.22); }
+.badge--expired { color: var(--text-muted); background: rgba(255, 255, 255, 0.05); border-color: var(--border-strong); }
+.badge--admin { color: var(--byzi-blue); background: rgba(46, 122, 237, 0.12); border-color: rgba(46, 122, 237, 0.26); }
+
+/* --------------------------------------------------------------------------
+   Boutons & formulaires
+   -------------------------------------------------------------------------- */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.13s ease, border-color 0.13s ease, opacity 0.13s ease;
+}
+.btn:hover { background: var(--surface-hover); border-color: rgba(255, 255, 255, 0.28); }
+.btn--primary { background: var(--byzi-blue); border-color: var(--byzi-blue); color: var(--white); }
+.btn--primary:hover { background: #2569cf; border-color: #2569cf; }
+/* Le rouge reste reserve au sens "alerte / destructif", jamais decoratif. */
+.btn--danger { color: var(--fn-red); border-color: rgba(255, 71, 87, 0.4); }
+.btn--danger:hover { background: rgba(255, 71, 87, 0.1); border-color: var(--fn-red); }
+.btn--sm { padding: 6px 12px; font-size: 13px; }
+.btn--block { width: 100%; }
+
+.field { display: flex; flex-direction: column; gap: 7px; }
+.field__label { font-size: 12.5px; color: var(--text-secondary); font-weight: 700; }
+.input {
+    background: var(--near-black);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 10px 13px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    width: 100%;
+    transition: border-color 0.13s ease;
+}
+.input:focus { outline: none; border-color: var(--byzi-blue); }
+.input::placeholder { color: var(--text-muted); }
+
+.form-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.form-row .field { flex: 1; min-width: 150px; }
+
+/* --------------------------------------------------------------------------
+   Etats vides, alertes, pagination
+   -------------------------------------------------------------------------- */
+
+.empty { padding: 46px 20px; text-align: center; color: var(--text-muted); }
+.empty__title { font-size: 15px; font-weight: 700; color: var(--text-secondary); margin-bottom: 5px; }
+.empty__hint { font-size: 13.5px; }
+
+.alert { padding: 11px 15px; border-radius: var(--radius-sm); font-size: 14px; margin-bottom: 18px; border: 1px solid transparent; }
+.alert--error { color: var(--fn-red); background: rgba(255, 71, 87, 0.09); border-color: rgba(255, 71, 87, 0.25); }
+.alert--success { color: var(--fn-green); background: rgba(22, 246, 134, 0.09); border-color: rgba(22, 246, 134, 0.25); }
+
+.pagination { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.pagination__info { font-size: 13px; color: var(--text-muted); }
+.pagination__links { display: flex; gap: 8px; }
+.pagination__link { padding: 5px 11px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); font-size: 13px; color: var(--text-secondary); }
+.pagination__link:hover { background: var(--surface-hover); color: var(--text-primary); }
+.pagination__link--disabled { opacity: 0.32; pointer-events: none; }
+
+.dl { display: grid; grid-template-columns: minmax(120px, auto) 1fr; gap: 11px 22px; font-size: 14px; margin: 0; }
+.dl dt { color: var(--text-muted); }
+.dl dd { margin: 0; word-break: break-word; }
+
+.timeline { list-style: none; margin: 0; padding: 0; }
+.timeline__item { display: flex; gap: 14px; padding: 13px 20px; border-bottom: 1px solid var(--border); }
+.timeline__item:last-child { border-bottom: 0; }
+.timeline__when { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; min-width: 130px; }
+.timeline__what { font-size: 13.5px; }
+.timeline__who { font-size: 12.5px; color: var(--text-secondary); }
+
+/* --------------------------------------------------------------------------
+   Page de connexion
+   -------------------------------------------------------------------------- */
+
+.login { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.login__panel { width: 100%; max-width: 372px; }
+/* Ici le logo est affiche en entier : le fond du fichier (#0B0D10) est exactement celui de
+   la page, donc l'image se fond sans bordure visible, et son wordmark + sa tagline evitent
+   d'avoir a les repeter en HTML. */
+.login__logo { display: block; width: 190px; height: auto; margin: 0 auto 18px; }
+.login__tagline { text-align: center; color: var(--text-muted); font-size: 13px; margin-bottom: 30px; }
+.login__form { display: flex; flex-direction: column; gap: 15px; }
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 900px) {
+    .grid--split { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; height: auto; position: static; flex-direction: row; align-items: center; gap: 18px; padding: 14px 18px; overflow-x: auto; }
+    .sidebar__footer { margin-top: 0; margin-left: auto; }
+    .nav { flex-direction: row; }
+    .topbar, .content { padding-left: 18px; padding-right: 18px; }
+}

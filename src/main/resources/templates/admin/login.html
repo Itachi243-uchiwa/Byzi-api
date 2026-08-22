@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/layout :: pageHead('Connexion')}"></head>
+<body>
+<div class="login">
+    <div class="login__panel">
+        <!--/* Logo affiche en entier : le fichier porte deja le mark, le wordmark et la
+               tagline, inutile de les redoubler en HTML. */-->
+        <img class="login__logo" th:src="@{/admin/images/logo.png}"
+             alt="Byzi - Become the manager of your time.">
+        <p class="login__tagline">Back-office - acces reserve</p>
+
+        <!--/* Message unique quelle que soit la cause de l'echec (compte inconnu, mot de
+               passe faux, compte non-admin) : detailler renseignerait un attaquant sur les
+               comptes qui existent. */-->
+        <div class="alert alert--error" th:if="${param.error}">
+            Identifiants invalides.
+        </div>
+        <div class="alert alert--success" th:if="${param.logout}">
+            Vous etes deconnecte.
+        </div>
+
+        <form class="login__form" th:action="@{/admin/login}" method="post">
+            <div class="field">
+                <label class="field__label" for="username">Adresse e-mail</label>
+                <input class="input" type="email" id="username" name="username"
+                       autocomplete="username" required autofocus>
+            </div>
+            <div class="field">
+                <label class="field__label" for="password">Mot de passe</label>
+                <input class="input" type="password" id="password" name="password"
+                       autocomplete="current-password" required>
+            </div>
+            <button type="submit" class="btn btn--primary btn--block">Se connecter</button>
+        </form>
+    </div>
+</div>
+</body>
+</html>

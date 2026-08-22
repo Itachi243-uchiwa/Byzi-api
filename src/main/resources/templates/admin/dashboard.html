@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/layout :: pageHead('Tableau de bord')}"></head>
+<body>
+<div class="layout">
+    <aside th:replace="~{admin/fragments/layout :: sidebar('dashboard')}"></aside>
+
+    <div class="main">
+        <header th:replace="~{admin/fragments/layout :: topbar( 'Pilotage', 'Tableau de bord', 'Etat du parc de comptes et de la conversion')}"></header>
+
+        <div class="content">
+            <div class="grid grid--kpi">
+                <div class="kpi">
+                    <div class="kpi__label">Comptes total</div>
+                    <div class="kpi__value" th:text="${kpi.totalUsers}">0</div>
+                    <div class="kpi__hint"
+                         th:text="|+${kpi.newUsersLast30Days} sur 30 jours|">+0 sur 30 jours</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi__label">Abonnes actifs</div>
+                    <div class="kpi__value kpi__value--success" th:text="${kpi.activeSubscribers}">0</div>
+                    <div class="kpi__hint" th:text="|${kpi.gracePeriodUsers} en impaye|">0 en impaye</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi__label">Essais en cours</div>
+                    <div class="kpi__value kpi__value--data" th:text="${kpi.trialUsers}">0</div>
+                    <div class="kpi__hint">Pas encore convertis</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi__label">Conversion essai &rarr; payant</div>
+                    <div class="kpi__value" th:text="|${kpi.conversionRate} %|">0 %</div>
+                    <div class="kpi__hint">Sur les comptes sortis de l'essai</div>
+                </div>
+                <div class="kpi">
+                    <div class="kpi__label">Churn</div>
+                    <div class="kpi__value kpi__value--alert" th:text="|${kpi.churnRate} %|">0 %</div>
+                    <div class="kpi__hint" th:text="|${kpi.expiredUsers} compte(s) expire(s)|">0 compte(s)</div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 22px;">
+                <div class="card__header">
+                    <h2 class="card__title">Dernieres actions d'administration</h2>
+                    <a class="btn btn--sm" th:href="@{/admin/audit}">Voir le journal</a>
+                </div>
+                <div class="card__body card__body--flush">
+                    <ul class="timeline" th:if="${!recentActions.isEmpty()}">
+                        <li class="timeline__item" th:each="entry : ${recentActions}">
+                            <span class="timeline__when"
+                                  th:text="${#temporals.format(entry.occurredAt, 'dd/MM/yyyy HH:mm')}"></span>
+                            <span>
+                                <span class="timeline__what" th:text="${entry.action}"></span>
+                                <span class="timeline__who" th:text="| - ${entry.adminLabel}|"></span>
+                            </span>
+                        </li>
+                    </ul>
+                    <div th:if="${recentActions.isEmpty()}"
+                         th:replace="~{admin/fragments/layout :: empty( 'Aucune action enregistree', 'Les interventions du support apparaitront ici.')}"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <!-- NOTE: vérifier la dernière version patch disponible sur Maven Central avant le premier build,
+             cet environnement de génération n'a pas accès au réseau vers repo.maven.apache.org. -->
+        <version>4.1.0</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.byzi</groupId>
+    <artifactId>byzi-api</artifactId>
+    <version>0.1.0</version>
+    <name>byzi-api</name>
+    <description>Byzi - Backend Spring Boot</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <nimbus-jose-jwt.version>9.40</nimbus-jose-jwt.version>
+        <jjwt.version>0.12.5</jjwt.version>
+        <springdoc.version>2.5.0</springdoc.version>
+        <jacoco.version>0.8.13</jacoco.version>
+    </properties>
+
+    <dependencies>
+        <!-- Web -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- Back-office admin (EPIC-09) : rendu serveur Thymeleaf.
+             Choisi plutot qu'un SPA pour un outil interne a faible trafic - pas de build
+             front separe a maintenir, et la securite passe par la meme session Spring
+             Security que le reste du module admin. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.thymeleaf.extras</groupId>
+            <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+        </dependency>
+
+        <!-- Sécurité -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- Validation des DTO (Bean Validation / OWASP A03 - Injection via entrées non validées) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- Persistance -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Migrations.
+             spring-boot-flyway porte l'auto-configuration : en Boot 4 elle a quitte
+             spring-boot-autoconfigure pour un module dedie, et flyway-core seul ne suffit
+             plus a declencher les migrations au demarrage. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
+        <!-- JWT applicatif (émission/validation des tokens Byzi) -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Vérification des identity tokens Apple (JWS RS256 + JWKS distant) -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>${nimbus-jose-jwt.version}</version>
+        </dependency>
+
+        <!-- Documentation API -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- Observabilité minimale (health, metrics) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Tests -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Base en memoire : tests d'integration, et profil "demo" pour lancer le back-office
+             sans installer PostgreSQL. Scope runtime pour que "mvn spring-boot:run" y ait
+             acces, MAIS explicitement exclue du jar par spring-boot-maven-plugin (voir plus
+             bas) : le driver H2 n'a rien a faire dans l'artefact deploye. -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- @AutoConfigureMockMvc (extrait de spring-boot-test-autoconfigure en Boot 4) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-webmvc-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>repackage</id>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Exclusions portees par la SEULE execution repackage, et non par
+                                 la configuration globale du plugin : au niveau global, elles
+                                 s'appliqueraient aussi au goal "run" et retireraient H2 du
+                                 classpath de developpement, rendant le profil demo inutilisable. -->
+                            <excludes>
+                                <exclude>
+                                    <groupId>org.projectlombok</groupId>
+                                    <artifactId>lombok</artifactId>
+                                </exclude>
+                                <!-- H2 sert aux tests et au profil "demo" en local. L'embarquer
+                                     dans l'artefact deploye offrirait une base alternative non
+                                     prevue a cote de PostgreSQL. -->
+                                <exclude>
+                                    <groupId>com.h2database</groupId>
+                                    <artifactId>h2</artifactId>
+                                </exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Couverture de tests (EPIC-11.2). Le seuil de 80% d'instructions est BLOQUANT :
+                 sous la barre, "mvn verify" echoue. C'est volontaire - un seuil purement
+                 indicatif retombe silencieusement des qu'un sprint est presse.
+
+                 Les exclusions ne sont pas la pour gonfler le chiffre : ce sont des classes
+                 sans logique (records DTO, enums, entites Lombok, configuration declarative,
+                 classe main). Les tester ne mesurerait que la capacite de Lombok a generer un
+                 getter. Tout ce qui contient une decision (services, mappers, filtres,
+                 controllers, strategies) reste dans le perimetre mesure. -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <configuration>
+                    <excludes>
+                        <exclude>com/buzi/api/BuziApplication.class</exclude>
+                        <exclude>com/buzi/api/dto/**</exclude>
+                        <exclude>com/buzi/api/domain/**</exclude>
+                        <exclude>com/buzi/api/config/**</exclude>
+                        <exclude>com/buzi/api/security/jwt/JwtProperties.class</exclude>
+                        <exclude>com/buzi/api/security/jwt/AccessTokenClaims.class</exclude>
+                        <exclude>com/buzi/api/security/apple/AppleAuthProperties.class</exclude>
+                        <exclude>com/buzi/api/security/apple/AppleIdTokenClaims.class</exclude>
+                        <exclude>com/buzi/api/security/JwtPrincipal.class</exclude>
+                    </excludes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>check-coverage</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <rule>
+                                    <element>BUNDLE</element>
+                                    <limits>
+                                        <limit>
+                                            <counter>INSTRUCTION</counter>
+                                            <value>COVEREDRATIO</value>
+                                            <minimum>0.80</minimum>
+                                        </limit>
+                                    </limits>
+                                </rule>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- OWASP Dependency-Check : à activer en CI pour scanner les CVE des dépendances (EPIC-01.7 / qualité) -->
+            <!--
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>10.0.3</version>
+            </plugin>
+            -->
+        </plugins>
+    </build>
+</project>

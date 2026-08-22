@@ -1,0 +1,36 @@
+spring:
+  datasource:
+    # NON_KEYWORDS : "user" et "day" sont reserves en H2 mais pas en Postgres. Les neutraliser
+    # ici permet de garder le schema et les entites ecrits pour Postgres, sans guillemets ni
+    # noms de colonnes specifiques a la base de test.
+    url: jdbc:h2:mem:byzi-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;NON_KEYWORDS=USER,DAY
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    # Pas de database-platform force ici : declarer le dialecte PostgreSQL alors que la base
+    # est H2 fait mentir Hibernate sur le SGBD reel et casse notamment la conversion des
+    # Instant (un timestamp ecrit ne vaut plus le timestamp relu). H2 tourne deja en
+    # MODE=PostgreSQL cote SQL ; le dialecte, lui, doit correspondre au driver reellement
+    # utilise et Hibernate le detecte tout seul.
+  flyway:
+    enabled: true
+
+byzi:
+  security:
+    jwt:
+      secret: "test-secret-key-at-least-32-bytes-long-for-hs256"
+      issuer: "byzi-api-test"
+      access-token-ttl-seconds: 900
+      refresh-token-ttl-seconds: 2592000
+    apple:
+      issuer: "https://appleid.apple.com"
+      audience: "com.byzi.app"
+      jwks-url: "https://appleid.apple.com/auth/keys"
+    cors:
+      allowed-origins: "http://localhost:3000"
+  webhook:
+    revenuecat:
+      secret: "test-revenuecat-webhook-secret"

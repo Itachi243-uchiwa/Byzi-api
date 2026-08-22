@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: WARN
+    com.byzi.api: INFO
+
+byzi:
+  security:
+    cors:
+      # DOIT etre restreint au(x) domaine(s) reel(s) des supports Byzi en production
+      # (back-office, landing page) - jamais de wildcard. Injecte via variable d'environnement.
+      allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+# Documentation API desactivable en production selon la politique de securite retenue par
+# l'equipe (certains choisissent de la garder derriere l'auth pour faciliter le support).
+springdoc:
+  swagger-ui:
+    enabled: ${SWAGGER_UI_ENABLED:false}

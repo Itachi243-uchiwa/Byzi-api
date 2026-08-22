@@ -1,0 +1,30 @@
+# Ce qui n'a rien a faire dans le contexte de build envoye au daemon Docker.
+# Sans ce fichier, target/ (plusieurs centaines de Mo) et .git/ seraient transferes
+# a chaque build, et un .env local finirait dans une couche d'image.
+
+target/
+!target/*.jar
+
+.git/
+.gitignore
+.gitattributes
+
+.idea/
+.run/
+*.iml
+
+# Secrets locaux : ne doivent JAMAIS entrer dans une image.
+.env
+*.env
+!.env.example
+
+# Base H2 du profil demo local
+*.mv.db
+*.trace.db
+
+# Documents produit, inutiles a l'execution
+*.pdf
+backlog.md
+HELP.md
+
+.mvn/wrapper/maven-wrapper.jar

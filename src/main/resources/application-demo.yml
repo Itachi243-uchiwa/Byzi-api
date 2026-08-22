@@ -1,0 +1,58 @@
+# Profil de demonstration locale du back-office.
+#
+# Objectif : lancer l'interface admin et la parcourir avec des donnees realistes, sans avoir a
+# installer PostgreSQL ni a configurer RevenueCat.
+#
+#   ./mvnw spring-boot:run -Dspring-boot.run.profiles=demo
+#   http://localhost:8080/admin  -  admin@byzi.app / byzi-demo
+#
+# Ce profil est volontairement isole de "dev" : les identifiants ci-dessous sont en clair et
+# le jeu de donnees est fictif. Il ne doit jamais etre active ailleurs qu'en local.
+
+spring:
+  datasource:
+    # Par defaut H2 en fichier : lancement sans rien installer, et les donnees survivent a un
+    # redemarrage (repartir d'un back-office vide a chaque relance serait penible).
+    #
+    # Les valeurs sont surchargeables pour que le MEME profil demo (donc le meme jeu de
+    # donnees) puisse tourner sur le PostgreSQL de docker-compose : c'est ce que fait
+    # docker-compose.yml en passant DB_URL / DB_DRIVER / DB_USERNAME / DB_PASSWORD.
+    url: ${DB_URL:jdbc:h2:file:./target/byzi-demo;MODE=PostgreSQL;NON_KEYWORDS=USER,DAY}
+    driver-class-name: ${DB_DRIVER:org.h2.Driver}
+    username: ${DB_USERNAME:sa}
+    password: ${DB_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+logging:
+  level:
+    com.buzi.api: DEBUG
+
+byzi:
+  security:
+    jwt:
+      secret: "demo-secret-key-at-least-32-bytes-long-not-for-production"
+      issuer: "byzi-api-demo"
+      access-token-ttl-seconds: 900
+      refresh-token-ttl-seconds: 2592000
+    apple:
+      issuer: "https://appleid.apple.com"
+      audience: "com.byzi.app"
+      jwks-url: "https://appleid.apple.com/auth/keys"
+    cors:
+      allowed-origins: "http://localhost:3000"
+  webhook:
+    revenuecat:
+      secret: "demo-revenuecat-secret"
+
+  # Identifiants du compte admin cree par DemoDataSeeder.
+  demo:
+    admin-email: "admin@byzi.app"
+    admin-password: "byzi-demo"
+
+springdoc:
+  swagger-ui:
+    enabled: true

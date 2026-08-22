@@ -1,0 +1,46 @@
+HELP.md
+target/
+.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+### VS Code ###
+.vscode/
+
+### Secrets locaux ###
+# Surcharges docker-compose : contient des mots de passe, ne doit jamais etre commite.
+# .env.example, lui, est versionne et sert de modele.
+.env
+!.env.example
+
+### Base H2 du profil demo lance hors Docker ###
+*.mv.db
+*.trace.db
+
+### Claude Code (local) ###
+.claude/settings.local.json

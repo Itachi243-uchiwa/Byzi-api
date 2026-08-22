@@ -1,0 +1,80 @@
+spring:
+  application:
+    name: byzi-api
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/byzi}
+    username: ${DB_USERNAME:byzi}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+
+  jpa:
+    hibernate:
+      # "validate" en toutes circonstances : le schema est PILOTE par Flyway, jamais par
+      # Hibernate ddl-auto (qui ne doit JAMAIS valoir "update"/"create" en production -
+      # risque de perte de donnees ou de derive de schema non tracee, OWASP A05).
+      ddl-auto: validate
+    open-in-view: false
+    # Volontairement PAS de hibernate.jdbc.time_zone ici : ce reglage sert aux colonnes SANS
+    # fuseau, alors que tout le schema utilise "timestamp with time zone", qui porte deja
+    # l'offset. L'ajouter reintroduit une conversion parasite sur les Instant.
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: false
+
+# Ne jamais journaliser le corps des requetes/reponses en production (peut contenir des
+# tokens ou des blobs de selection d'apps) : desactive par defaut, a n'activer qu'en dev
+# de maniere ciblee.
+logging:
+  level:
+    root: INFO
+    com.byzi.api: INFO
+    org.springframework.security: INFO
+
+byzi:
+  security:
+    jwt:
+      # Secret injecte UNIQUEMENT via variable d'environnement, jamais commite (OWASP A02).
+      secret: ${JWT_SECRET}
+      issuer: "byzi-api"
+      access-token-ttl-seconds: 900        # 15 minutes : fenetre courte en cas de fuite
+      refresh-token-ttl-seconds: 2592000    # 30 jours
+    apple:
+      issuer: "https://appleid.apple.com"
+      audience: ${APPLE_BUNDLE_ID:com.byzi.app}
+      jwks-url: "https://appleid.apple.com/auth/keys"
+    admin:
+      # Liste d'appleSub separes par des virgules, promus ADMIN au demarrage s'ils existent
+      # deja en base. Vide par defaut = aucun effet. A utiliser UNE SEULE FOIS au tout
+      # premier deploiement (cf. AdminBootstrapRunner) puis a retirer/vider.
+      bootstrap-apple-subs: ${ADMIN_BOOTSTRAP_APPLE_SUBS:}
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  webhook:
+    revenuecat:
+      # Secret partage a recopier dans le dashboard RevenueCat (champ "Authorization header").
+      # Seule protection de l'endpoint webhook : sans lui, n'importe qui pourrait s'octroyer
+      # un abonnement actif. Injecte par variable d'environnement, jamais commite.
+      secret: ${REVENUECAT_WEBHOOK_SECRET}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      # Ne pas exposer le detail des composants (DB, disque...) publiquement, meme sur
+      # l'endpoint de sante - reduit la surface d'information exploitable (OWASP A05).
+      show-details: never
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs

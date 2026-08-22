@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/layout :: pageHead('Journal d’audit')}"></head>
+<body>
+<div class="layout">
+    <aside th:replace="~{admin/fragments/layout :: sidebar('audit')}"></aside>
+
+    <div class="main">
+        <header th:replace="~{admin/fragments/layout :: topbar( 'Tracabilite', 'Journal d’audit', 'Qui a fait quoi, quand - en lecture seule')}"></header>
+
+        <div class="content">
+            <div class="card">
+                <div class="card__header">
+                    <h2 class="card__title" th:text="|${entries.totalElements} entree(s)|">Entrees</h2>
+                </div>
+                <div class="card__body card__body--flush">
+                    <div class="table-wrap" th:if="${entries.hasContent()}">
+                        <table class="table">
+                            <thead>
+                            <tr>
+                                <th>Date</th><th>Administrateur</th><th>Action</th>
+                                <th>Compte cible</th><th>Detail</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="e : ${entries.content}">
+                                <td class="table__mono"
+                                    th:text="${#temporals.format(e.occurredAt, 'dd/MM/yyyy HH:mm')}"></td>
+                                <td th:text="${e.adminLabel}"></td>
+                                <td class="table__strong" th:text="${e.action}"></td>
+                                <td class="table__mono">
+                                    <!--/* Pas de lien si le compte a ete supprime : la trace survit
+                                           volontairement a sa cible (pas de FK en cascade). */-->
+                                    <a th:if="${e.targetUserId}"
+                                       th:href="@{/admin/users/{id}(id=${e.targetUserId})}"
+                                       th:text="${e.targetUserId}"></a>
+                                    <span th:unless="${e.targetUserId}">-</span>
+                                </td>
+                                <td th:text="${e.details} ?: '-'"></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div th:unless="${entries.hasContent()}"
+                         th:replace="~{admin/fragments/layout :: empty( 'Journal vide', 'Aucune action d’administration n’a encore ete enregistree.')}"></div>
+                </div>
+                <div th:replace="~{admin/fragments/layout :: pagination(${entries}, '/admin/audit', null)}"></div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

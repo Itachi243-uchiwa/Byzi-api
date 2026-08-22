@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/layout :: pageHead('Utilisateurs')}"></head>
+<body>
+<div class="layout">
+    <aside th:replace="~{admin/fragments/layout :: sidebar('users')}"></aside>
+
+    <div class="main">
+        <header th:replace="~{admin/fragments/layout :: topbar( 'Comptes', 'Utilisateurs', 'Rechercher un compte et acceder a son detail')}"></header>
+
+        <div class="content">
+            <div class="alert alert--success" th:if="${success}" th:text="${success}"></div>
+
+            <div class="card">
+                <div class="card__header">
+                    <h2 class="card__title" th:text="|${users.totalElements} compte(s)|">Comptes</h2>
+                    <form method="get" th:action="@{/admin/users}" class="form-row" style="margin:0">
+                        <div class="field">
+                            <input class="input" type="search" name="q" placeholder="Rechercher par e-mail"
+                                   th:value="${query}" aria-label="Rechercher par e-mail">
+                        </div>
+                        <button type="submit" class="btn btn--sm">Rechercher</button>
+                    </form>
+                </div>
+
+                <div class="card__body card__body--flush">
+                    <div class="table-wrap" th:if="${users.hasContent()}">
+                        <table class="table">
+                            <thead>
+                            <tr>
+                                <th>E-mail</th>
+                                <th>Statut</th>
+                                <th>Inscription</th>
+                                <th>Derniere connexion</th>
+                                <th></th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="u : ${users.content}">
+                                <td>
+                                    <span class="table__strong" th:if="${u.email}" th:text="${u.email}"></span>
+                                    <!--/* Sign in with Apple permet de masquer son adresse : l'absence
+                                           d'email est normale, pas une anomalie de donnees. */-->
+                                    <span class="table__mono" th:unless="${u.email}">e-mail masque</span>
+                                    <span class="badge badge--admin" th:if="${u.role.name() == 'ADMIN'}"
+                                          style="margin-left:8px">Admin</span>
+                                </td>
+                                <td th:with="s=${u.subscriptionStatus}">
+                                    <span th:replace="~{admin/fragments/layout :: statusBadge(${s})}"></span>
+                                </td>
+                                <td class="table__mono"
+                                    th:text="${u.createdAt != null} ? ${#temporals.format(u.createdAt, 'dd/MM/yyyy')} : '-'"></td>
+                                <td class="table__mono"
+                                    th:text="${u.lastLoginAt != null} ? ${#temporals.format(u.lastLoginAt, 'dd/MM/yyyy HH:mm')} : 'jamais'"></td>
+                                <td style="text-align:right">
+                                    <a class="btn btn--sm" th:href="@{/admin/users/{id}(id=${u.id})}">Detail</a>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div th:unless="${users.hasContent()}"
+                         th:replace="~{admin/fragments/layout :: empty( 'Aucun compte trouve', 'Aucun compte ne correspond a cette recherche.')}"></div>
+                </div>
+
+                <div th:replace="~{admin/fragments/layout :: pagination(${users}, '/admin/users', ${query})}"></div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

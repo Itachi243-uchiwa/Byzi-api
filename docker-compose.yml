@@ -1,0 +1,81 @@
+# =============================================================================
+# Byzi - environnement de developpement complet (EPIC-00.5)
+#
+#   docker compose up --build
+#   -> back-office : http://localhost:8080/admin   (admin@byzi.app / byzi-demo)
+#   -> API + Swagger : http://localhost:8080/swagger-ui.html
+#   -> PostgreSQL : localhost:5432 (byzi / byzi)
+#
+# Le profil applicatif est "demo" : il amorce un jeu de donnees fictif pour que le
+# back-office ne soit pas vide au premier demarrage. Les variables DB_* ci-dessous
+# redirigent ce profil vers PostgreSQL au lieu du H2 local, si bien que le meme jeu
+# de donnees s'execute sur le vrai SGBD de production.
+#
+# Passer SPRING_PROFILES_ACTIVE=dev pour demarrer sur une base vide.
+# =============================================================================
+
+services:
+
+  db:
+    image: postgres:17-alpine
+    container_name: byzi-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-byzi}
+      POSTGRES_USER: ${POSTGRES_USER:-byzi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-byzi}
+    ports:
+      # Expose pour pouvoir brancher un client SQL (DBeaver, psql, IntelliJ) sur la
+      # base de developpement depuis la machine hote.
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - byzi-db-data:/var/lib/postgresql/data
+    healthcheck:
+      # pg_isready et non un simple "port ouvert" : Postgres accepte les connexions
+      # TCP avant d'etre pret a servir des requetes, et l'API demarrerait alors trop
+      # tot en echouant sur la migration Flyway.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-byzi} -d ${POSTGRES_DB:-byzi}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: byzi-api
+    depends_on:
+      db:
+        # service_healthy et non le simple "started" : sans cela, Flyway tenterait sa
+        # migration sur une base qui n'accepte pas encore de requetes.
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-demo}
+
+      # "db" est le nom du service : c'est le DNS interne du reseau compose, pas
+      # localhost - qui, depuis le conteneur api, designerait l'api elle-meme.
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-byzi}
+      DB_DRIVER: org.postgresql.Driver
+      DB_USERNAME: ${POSTGRES_USER:-byzi}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-byzi}
+
+      # Valeurs de developpement. En production, ces secrets viennent du gestionnaire
+      # de secrets de la plateforme d'hebergement, jamais d'un fichier du depot.
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-key-at-least-32-bytes-long}
+      REVENUECAT_WEBHOOK_SECRET: ${REVENUECAT_WEBHOOK_SECRET:-docker-dev-revenuecat-secret}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  # Volume nomme : les donnees survivent a "docker compose down". Utiliser
+  # "down -v" pour repartir d'une base vierge.
+  byzi-db-data:
