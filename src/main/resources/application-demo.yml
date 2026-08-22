@@ -29,7 +29,7 @@ spring:
 
 logging:
   level:
-    com.buzi.api: DEBUG
+    com.byzi.api: DEBUG
 
 byzi:
   security:

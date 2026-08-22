@@ -210,15 +210,15 @@
                 <version>${jacoco.version}</version>
                 <configuration>
                     <excludes>
-                        <exclude>com/buzi/api/BuziApplication.class</exclude>
-                        <exclude>com/buzi/api/dto/**</exclude>
-                        <exclude>com/buzi/api/domain/**</exclude>
-                        <exclude>com/buzi/api/config/**</exclude>
-                        <exclude>com/buzi/api/security/jwt/JwtProperties.class</exclude>
-                        <exclude>com/buzi/api/security/jwt/AccessTokenClaims.class</exclude>
-                        <exclude>com/buzi/api/security/apple/AppleAuthProperties.class</exclude>
-                        <exclude>com/buzi/api/security/apple/AppleIdTokenClaims.class</exclude>
-                        <exclude>com/buzi/api/security/JwtPrincipal.class</exclude>
+                        <exclude>com/byzi/api/ByziApplication.class</exclude>
+                        <exclude>com/byzi/api/dto/**</exclude>
+                        <exclude>com/byzi/api/domain/**</exclude>
+                        <exclude>com/byzi/api/config/**</exclude>
+                        <exclude>com/byzi/api/security/jwt/JwtProperties.class</exclude>
+                        <exclude>com/byzi/api/security/jwt/AccessTokenClaims.class</exclude>
+                        <exclude>com/byzi/api/security/apple/AppleAuthProperties.class</exclude>
+                        <exclude>com/byzi/api/security/apple/AppleIdTokenClaims.class</exclude>
+                        <exclude>com/byzi/api/security/JwtPrincipal.class</exclude>
                     </excludes>
                 </configuration>
                 <executions>
