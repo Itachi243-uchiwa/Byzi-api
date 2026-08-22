@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -46,7 +47,21 @@ public class RevenueCatWebhookController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        subscriptionService.applyWebhookEvent(request.event());
+        try {
+            subscriptionService.applyWebhookEvent(request.event());
+        } catch (DataIntegrityViolationException e) {
+            // Deux livraisons du meme webhook traitees en parallele : la contrainte d'unicite
+            // sur event_id a tranche et la transaction perdante a ete annulee. L'etat en base
+            // est celui qu'a ecrit la transaction gagnante - c'est-a-dire exactement le meme,
+            // puisque c'est le meme evenement. Il n'y a donc rien a rejouer.
+            //
+            // Le rattrapage est ICI et non dans le service : apres une violation de contrainte,
+            // le contexte de persistance JPA est inutilisable et la transaction DOIT etre
+            // annulee. Avaler l'exception a l'interieur du service ne ferait que deplacer
+            // l'echec au moment du commit.
+            log.info("Evenement RevenueCat {} deja insere par une livraison concurrente, acquitte sans rejeu",
+                    request.event().id());
+        }
         return ResponseEntity.ok().build();
     }
 }

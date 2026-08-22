@@ -65,7 +65,7 @@ public class AdminUserService {
                 .orElseThrow(() -> new ResourceNotFoundException("Compte introuvable"));
 
         List<LocalDate> goalReachedDays = streakRecordRepository
-                .findTop60ByUser_IdAndGoalReachedTrueOrderByDayDesc(userId)
+                .findTop60ByUser_IdAndGoalReachedTrueAndDeletedAtIsNullOrderByDayDesc(userId)
                 .stream()
                 .map(StreakRecord::getDay)
                 .toList();

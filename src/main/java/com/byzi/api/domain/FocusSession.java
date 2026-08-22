@@ -41,4 +41,15 @@ public class FocusSession extends BaseEntity {
     @Column(name = "completed", nullable = false)
     @Builder.Default
     private boolean completed = false;
+
+    /**
+     * Tombstone de synchronisation (MANQUE-02). Effacer physiquement la ligne la rendrait
+     * invisible du delta, et le PUT suivant de l'appareil qui ignore encore la suppression
+     * la recreerait. Renseigne = supprimee du point de vue des clients.
+     * <p>
+     * Sans rapport avec la suppression de compte RGPD, qui reste physique et en cascade
+     * (cf. AccountDeletionService).
+     */
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 }

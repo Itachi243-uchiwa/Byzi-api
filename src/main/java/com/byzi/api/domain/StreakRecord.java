@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
@@ -21,8 +22,15 @@ import java.time.LocalDate;
 @ToString(callSuper = true, exclude = "user")
 public class StreakRecord extends BaseEntity {
 
+    /**
+     * updatable = false est ESSENTIEL ici (audit backend - BLOQ-01). Sans lui, un upsert
+     * portant l'id d'une ligne appartenant a un autre compte produisait un merge Hibernate
+     * qui reaffectait user_id a l'appelant : la victime perdait purement et simplement sa
+     * ligne, qui changeait de proprietaire. Un enregistrement ne doit jamais pouvoir changer
+     * de proprietaire, quelle que soit la requete.
+     */
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", nullable = false) // Correction de la colonne de jointure
+    @JoinColumn(name = "user_id", nullable = false, updatable = false)
     private User user;
 
     @Column(name = "day", nullable = false)
@@ -34,4 +42,15 @@ public class StreakRecord extends BaseEntity {
     @Column(name = "focus_minutes", nullable = false)
     @Builder.Default
     private Integer focusMinutes = 0;
+
+    /**
+     * Tombstone de synchronisation (MANQUE-02), meme role que sur FocusSession.
+     * <p>
+     * Cas particulier de cette entite : la contrainte uk_streak_user_day interdit deux lignes
+     * pour le meme (user_id, day). Un streak supprime occupe donc toujours son creneau - la
+     * recreation du meme jour REANIME la ligne existante au lieu d'en inserer une seconde,
+     * cf. StreakRecordService.upsert.
+     */
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 }

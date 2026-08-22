@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.time.Instant;
+
 @Entity
 @Table(name = "app_block_rules")
 @SuperBuilder
@@ -38,4 +40,13 @@ public class AppBlockRule extends BaseEntity {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean isActive = true;
+
+    /**
+     * Tombstone de synchronisation (MANQUE-02), meme role que sur FocusSession.
+     * <p>
+     * A ne pas confondre avec isActive, qui est un choix de l'utilisateur (regle desactivee
+     * mais conservee) : deletedAt signifie que la regle n'existe plus du tout.
+     */
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 }

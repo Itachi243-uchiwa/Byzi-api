@@ -45,7 +45,8 @@ public class FocusSessionMapper {
                 entity.getMode(),
                 entity.isCompleted(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.getDeletedAt()
         );
     }
 }

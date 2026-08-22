@@ -103,6 +103,12 @@ public class SubscriptionService {
         } catch (DataIntegrityViolationException e) {
             // Deux livraisons du meme webhook traitees en parallele : la contrainte d'unicite
             // sur event_id tranche. Le perdant abandonne, l'etat reste coherent.
+            //
+            // L'exception est RELANCEE volontairement : apres une violation de contrainte, le
+            // contexte de persistance est inutilisable et la transaction doit etre annulee.
+            // C'est le controller qui la rattrape pour repondre 200 a RevenueCat, conformement
+            // au contrat "401 ou 200, jamais autre chose" - la rattraper ici ne ferait que
+            // deplacer l'echec au commit.
             log.info("Evenement RevenueCat {} insere concurremment, transaction abandonnee", event.id());
             throw e;
         }

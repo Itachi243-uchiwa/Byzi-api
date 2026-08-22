@@ -32,7 +32,8 @@ public class StreakRecordMapper {
                 entity.isGoalReached(),
                 entity.getFocusMinutes(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.getDeletedAt()
         );
     }
 }

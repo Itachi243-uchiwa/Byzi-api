@@ -5,6 +5,7 @@ import com.byzi.api.dto.streak.StreakRecordResponse;
 import com.byzi.api.security.SecurityUtils;
 import com.byzi.api.service.StreakRecordService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,8 +21,10 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Tag(name = "Streak Records", description = "Synchronisation des streaks quotidiens (miroir de SwiftData)")
@@ -35,7 +39,10 @@ public class StreakRecordController {
         this.streakRecordService = streakRecordService;
     }
 
-    @Operation(summary = "Cree ou met a jour un streak quotidien (upsert, un seul enregistrement par jour et par utilisateur)")
+    @Operation(summary = "Cree ou met a jour un streak quotidien (un seul enregistrement par jour et par utilisateur)",
+            description = "Si un streak existe deja pour ce jour, il est mis a jour quel que soit l'id "
+                    + "envoye : la cle metier est le couple (utilisateur, jour). Un streak supprime "
+                    + "n'est reanime que si clientUpdatedAt est posterieur a la date de suppression.")
     @PutMapping("/{id}")
     public ResponseEntity<StreakRecordResponse> upsert(
             @PathVariable UUID id,
@@ -50,15 +57,24 @@ public class StreakRecordController {
         return ResponseEntity.ok(streakRecordService.get(id, SecurityUtils.currentUserId()));
     }
 
-    @Operation(summary = "Liste paginee des streaks de l'utilisateur courant, plus recents d'abord")
+    @Operation(summary = "Liste paginee des streaks de l'utilisateur courant, plus recents d'abord",
+            description = "Avec updatedSince, bascule en synchronisation incrementale : seuls les "
+                    + "streaks modifies depuis cet instant sont renvoyes, tombstones compris "
+                    + "(champ deletedAt non nul), tries par updatedAt croissant.")
     @GetMapping
     public ResponseEntity<Page<StreakRecordResponse>> list(
+            @Parameter(description = "Instant ISO-8601. Active le mode delta.", example = "2026-08-22T10:15:30Z")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant updatedSince,
             @PageableDefault(size = 90, sort = "day", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return ResponseEntity.ok(streakRecordService.list(SecurityUtils.currentUserId(), pageable));
+        return ResponseEntity.ok(streakRecordService.list(SecurityUtils.currentUserId(), updatedSince, pageable));
     }
 
-    @Operation(summary = "Supprime un streak")
+    @Operation(summary = "Supprime un streak",
+            description = "Suppression logique : le streak sort des listes et des GET, mais reste "
+                    + "visible dans le delta sous forme de tombstone. Son creneau (utilisateur, jour) "
+                    + "reste occupe : un nouveau streak le meme jour reanime la meme ligne.")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         streakRecordService.delete(id, SecurityUtils.currentUserId());

@@ -40,7 +40,8 @@ public class AppBlockRuleMapper {
                 entity.getScheduleEnd(),
                 entity.isActive(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                entity.getDeletedAt()
         );
     }
 }
