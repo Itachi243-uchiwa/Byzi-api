@@ -9,7 +9,7 @@ import lombok.experimental.SuperBuilder;
 @Table(
         name = "users",
         indexes = {
-                @Index(name = "Idx_users_apple_sub", columnList = "apple_sub", unique = true)
+                @Index(name = "idx_users_apple_sub", columnList = "apple_sub", unique = true)
         })
 @SuperBuilder
 @NoArgsConstructor

@@ -15,14 +15,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "AUth", description = "Authentification SIgn in with Apple et cycle de vie des tokens Buzy")
+@Tag(name = "Auth", description = "Authentification SIgn in with Apple et cycle de vie des tokens Byzi")
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
     private final AuthService authService;
 
-    @Operation(summary = "Echnage un identity token Apple core contre une apire access/refresh token Byzi")
+    @Operation(summary = "Echange un identity token Apple contre une paire access/refresh token Byzi")
     @PostMapping("/apple")
     public ResponseEntity<AuthResponse> signInWithApple(
             @Valid

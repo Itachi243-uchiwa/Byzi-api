@@ -1,9 +1,16 @@
 package com.byzi.api.controller;
 
+import com.byzi.api.domain.AppBlockRule;
 import com.byzi.api.domain.Role;
 import com.byzi.api.domain.SessionMode;
+import com.byzi.api.domain.StreakRecord;
+import com.byzi.api.domain.SubscriptionEvent;
+import com.byzi.api.domain.SubscriptionStatus;
 import com.byzi.api.domain.User;
+import com.byzi.api.repository.AppBlockRuleRepository;
 import com.byzi.api.repository.FocusSessionRepository;
+import com.byzi.api.repository.StreakRecordRepository;
+import com.byzi.api.repository.SubscriptionEventRepository;
 import com.byzi.api.repository.UserRepository;
 import com.byzi.api.security.apple.AppleIdTokenClaims;
 import com.byzi.api.security.apple.AppleTokenVerifier;
@@ -19,6 +26,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,6 +35,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -50,6 +59,12 @@ class AuthAndAccountIntegrationTest {
     @Autowired
     private FocusSessionRepository focusSessionRepository;
     @Autowired
+    private StreakRecordRepository streakRecordRepository;
+    @Autowired
+    private AppBlockRuleRepository appBlockRuleRepository;
+    @Autowired
+    private SubscriptionEventRepository subscriptionEventRepository;
+    @Autowired
     private JwtService jwtService;
 
     @MockitoBean
@@ -57,7 +72,7 @@ class AuthAndAccountIntegrationTest {
 
     private String signInAndGetAccessToken(String appleSub) throws Exception {
         when(appleTokenVerifier.verify(anyString()))
-                .thenReturn(new AppleIdTokenClaims(appleSub, appleSub + "@byzi.app"));
+                .thenReturn(new AppleIdTokenClaims(appleSub, appleSub + "@byzi.app", true));
 
         String response = mockMvc.perform(post("/api/v1/auth/apple")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -168,5 +183,78 @@ class AuthAndAccountIntegrationTest {
         mockMvc.perform(get("/api/v1/focus-sessions").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    // --- MANQUE-03 : export RGPD (art. 20) --------------------------------------------------
+
+    @Test
+    void exportAccountRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/account/export")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void exportAccountOffersDownloadableJsonWithOwnDataOnly() throws Exception {
+        User owner = userRepository.save(User.builder()
+                .id(UUID.randomUUID()).appleSub("sub-" + UUID.randomUUID()).email("owner@byzi.app")
+                .role(Role.USER).subscriptionStatus(SubscriptionStatus.ACTIVE)
+                .subscriptionExpiresAt(Instant.now().plusSeconds(3600)).build());
+        User other = userRepository.save(User.builder()
+                .id(UUID.randomUUID()).appleSub("sub-" + UUID.randomUUID()).role(Role.USER).build());
+        String ownerToken = jwtService.generateAccessToken(owner.getId(), Role.USER);
+
+        focusSessionRepository.save(com.byzi.api.domain.FocusSession.builder()
+                .id(UUID.randomUUID()).user(owner).startedAt(Instant.now())
+                .plannedDurationSeconds(1500).mode(SessionMode.STANDARD).build());
+        streakRecordRepository.save(StreakRecord.builder()
+                .id(UUID.randomUUID()).user(owner).day(LocalDate.now()).goalReached(true).focusMinutes(45).build());
+        String opaqueBlob = "eyJhcHBUb2tlbnMiOlsiQUFBQ0FnRUEiXX0=";
+        appBlockRuleRepository.save(AppBlockRule.builder()
+                .id(UUID.randomUUID()).user(owner).selectionData(opaqueBlob).isActive(true).build());
+        subscriptionEventRepository.save(SubscriptionEvent.builder()
+                .id(UUID.randomUUID()).user(owner).eventId("evt-" + UUID.randomUUID())
+                .eventType("INITIAL_PURCHASE").resultingStatus(SubscriptionStatus.ACTIVE)
+                .expiresAt(Instant.now().plusSeconds(3600)).occurredAt(Instant.now())
+                .receivedAt(Instant.now()).build());
+
+        // Donnees d'un autre compte : ne doivent apparaitre nulle part dans l'export du owner.
+        focusSessionRepository.save(com.byzi.api.domain.FocusSession.builder()
+                .id(UUID.randomUUID()).user(other).startedAt(Instant.now())
+                .plannedDurationSeconds(900).mode(SessionMode.DEEP_FOCUS).build());
+
+        mockMvc.perform(get("/api/v1/account/export").header("Authorization", "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition",
+                        org.hamcrest.Matchers.containsString("attachment")))
+                .andExpect(header().string("Content-Disposition",
+                        org.hamcrest.Matchers.containsString(owner.getId().toString())))
+                .andExpect(jsonPath("$.profile.userId").value(owner.getId().toString()))
+                .andExpect(jsonPath("$.profile.appleSub").value(owner.getAppleSub()))
+                .andExpect(jsonPath("$.profile.email").value("owner@byzi.app"))
+                // Ni passwordHash ni role ne doivent jamais apparaitre dans l'export.
+                .andExpect(jsonPath("$.profile.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.profile.role").doesNotExist())
+                .andExpect(jsonPath("$.focusSessions.length()").value(1))
+                .andExpect(jsonPath("$.streakRecords.length()").value(1))
+                .andExpect(jsonPath("$.appBlockRules.length()").value(1))
+                // Le blob opaque ressort octet pour octet : aucune interpretation cote serveur.
+                .andExpect(jsonPath("$.appBlockRules[0].selectionData").value(opaqueBlob))
+                .andExpect(jsonPath("$.subscriptionHistory.length()").value(1))
+                .andExpect(jsonPath("$.subscriptionHistory[0].eventType").value("INITIAL_PURCHASE"))
+                .andExpect(jsonPath("$.subscriptionHistory[0].id").doesNotExist())
+                .andExpect(jsonPath("$.subscriptionHistory[0].eventId").doesNotExist());
+    }
+
+    @Test
+    void exportAccountForUserWithNoDataReturnsEmptyCollections() throws Exception {
+        User user = userRepository.save(User.builder()
+                .id(UUID.randomUUID()).appleSub("sub-" + UUID.randomUUID()).role(Role.USER).build());
+        String token = jwtService.generateAccessToken(user.getId(), Role.USER);
+
+        mockMvc.perform(get("/api/v1/account/export").header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.focusSessions.length()").value(0))
+                .andExpect(jsonPath("$.streakRecords.length()").value(0))
+                .andExpect(jsonPath("$.appBlockRules.length()").value(0))
+                .andExpect(jsonPath("$.subscriptionHistory.length()").value(0));
     }
 }

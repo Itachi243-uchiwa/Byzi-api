@@ -40,6 +40,15 @@ public class RefreshToken {
     @Builder.Default
     private boolean revoked = false;
 
+    /**
+     * Date de la revocation (rotation ou deconnexion globale), distincte de createdAt (date
+     * d'emission). Nullable : les lignes revoquees avant l'introduction de cette colonne (V4)
+     * n'en ont pas. Sert de reference a la purge (RefreshTokenRepository.deleteExpiredOrRevokedBefore)
+     * pour ne conserver un token revoque que 7 jours, au lieu d'attendre son TTL complet.
+     */
+    @Column(name = "revoked_at")
+    private Instant revokedAt;
+
     @Column(name = "created_at", nullable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

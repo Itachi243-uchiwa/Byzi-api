@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -92,6 +93,9 @@ class RefreshTokenServiceTest {
         RefreshTokenService.RotationResult result = service.rotate(raw);
 
         assertThat(stored.isRevoked()).isTrue();
+        // Sans cette date, la purge nocturne ne saurait pas quand ce token a ete revoque et
+        // retomberait sur sa date d'emission, potentiellement bien plus ancienne.
+        assertThat(stored.getRevokedAt()).isNotNull().isBeforeOrEqualTo(Instant.now());
         assertThat(result.newToken()).isNotEqualTo(raw);
         assertThat(result.user()).isEqualTo(user);
     }
@@ -128,7 +132,7 @@ class RefreshTokenServiceTest {
         assertThatThrownBy(() -> service.rotate("vole"))
                 .isInstanceOf(InvalidRefreshTokenException.class);
 
-        verify(refreshTokenRepository).revokeAllActiveForUser(user.getId());
+        verify(refreshTokenRepository).revokeAllActiveForUser(eq(user.getId()), any());
     }
 
     @Test
@@ -137,7 +141,7 @@ class RefreshTokenServiceTest {
 
         service.revokeAllForUser(userId);
 
-        verify(refreshTokenRepository).revokeAllActiveForUser(userId);
+        verify(refreshTokenRepository).revokeAllActiveForUser(eq(userId), any());
     }
 
     /** Reproduit le hachage interne pour construire un jeton stocke coherent. */

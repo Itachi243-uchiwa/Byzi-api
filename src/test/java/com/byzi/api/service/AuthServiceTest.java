@@ -66,7 +66,7 @@ class AuthServiceTest {
 
     @Test
     void createsAccountOnFirstSignIn() {
-        when(appleTokenVerifier.verify("token")).thenReturn(new AppleIdTokenClaims("apple-sub-1", "a@byzi.app"));
+        when(appleTokenVerifier.verify("token")).thenReturn(new AppleIdTokenClaims("apple-sub-1", "a@byzi.app", true));
         when(userRepository.findByAppleSub("apple-sub-1")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
         when(refreshTokenService.issue(any())).thenReturn("refresh-token");
@@ -86,7 +86,7 @@ class AuthServiceTest {
     void neverGrantsAdminRoleOnSelfSignUp() {
         // Un compte cree par l'app iOS ne doit jamais naitre ADMIN : la promotion est un acte
         // deliberе, pas un effet de bord de l'inscription.
-        when(appleTokenVerifier.verify("token")).thenReturn(new AppleIdTokenClaims("apple-sub-2", null));
+        when(appleTokenVerifier.verify("token")).thenReturn(new AppleIdTokenClaims("apple-sub-2", null, true));
         when(userRepository.findByAppleSub("apple-sub-2")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
         when(refreshTokenService.issue(any())).thenReturn("r");
@@ -101,7 +101,7 @@ class AuthServiceTest {
     @Test
     void reusesExistingAccountAndTouchesLastLogin() {
         User existing = existingUser("apple-sub-3");
-        when(appleTokenVerifier.verify("token")).thenReturn(new AppleIdTokenClaims("apple-sub-3", "b@byzi.app"));
+        when(appleTokenVerifier.verify("token")).thenReturn(new AppleIdTokenClaims("apple-sub-3", "b@byzi.app", true));
         when(userRepository.findByAppleSub("apple-sub-3")).thenReturn(Optional.of(existing));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
         when(refreshTokenService.issue(any())).thenReturn("r");
@@ -118,7 +118,7 @@ class AuthServiceTest {
         // L'ecraser avec null effacerait une donnee de support deja acquise.
         User existing = existingUser("apple-sub-4");
         existing.setEmail("connu@byzi.app");
-        when(appleTokenVerifier.verify("token")).thenReturn(new AppleIdTokenClaims("apple-sub-4", null));
+        when(appleTokenVerifier.verify("token")).thenReturn(new AppleIdTokenClaims("apple-sub-4", null, true));
         when(userRepository.findByAppleSub("apple-sub-4")).thenReturn(Optional.of(existing));
         when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
         when(refreshTokenService.issue(any())).thenReturn("r");

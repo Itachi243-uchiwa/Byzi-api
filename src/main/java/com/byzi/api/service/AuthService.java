@@ -44,7 +44,7 @@ public class AuthService {
     public AuthResponse refresh(String refreshToken) {
         RefreshTokenService.RotationResult rotationResult = refreshTokenService.rotate(refreshToken);
 
-        return buildReponse(rotationResult.user(), rotationResult.newToken());
+        return buildResponse(rotationResult.user(), rotationResult.newToken());
     }
 
     @Transactional
@@ -54,10 +54,34 @@ public class AuthService {
 
     private User touchLastLogin(User existing, AppleIdTokenClaims claims) {
         existing.setLastLoginAt(Instant.now());
-        if (claims.email() != null && !claims.email().isBlank()) {
-            existing.setEmail(claims.email());
-        }
+        applyVerifiedEmailIfSafe(existing, claims);
         return userRepository.save(existing);
+    }
+
+    /**
+     * L'identite d'un compte USER repose sur appleSub, jamais sur l'email : le mettre a jour
+     * n'est qu'un service rendu au support, pas une necessite d'authentification. On ne
+     * l'ecrit donc que si (1) il a reellement change - eviter un UPDATE a chaque connexion
+     * pour une donnee qui ne bouge quasiment jamais -, (2) Apple le declare verifie - un email
+     * non confirme n'est pas une donnee de contact fiable -, et (3) aucun AUTRE compte ne le
+     * porte deja : users.email est unique (V3, connexion back-office), et laisser save()
+     * echouer sur cette contrainte transformerait une connexion Apple parfaitement legitime en
+     * 409 pour l'utilisateur.
+     */
+    private void applyVerifiedEmailIfSafe(User existing, AppleIdTokenClaims claims) {
+        String newEmail = claims.email();
+        if (newEmail == null || newEmail.isBlank()
+                || !claims.emailVerified()
+                || newEmail.equals(existing.getEmail())) {
+            return;
+        }
+        userRepository.findByEmail(newEmail)
+                .filter(other -> !other.getId().equals(existing.getId()))
+                .ifPresentOrElse(
+                        conflict -> log.warn(
+                                "Email Apple deja rattache a un autre compte (userId={}), mise a jour ignoree",
+                                existing.getId()),
+                        () -> existing.setEmail(newEmail));
     }
 
     private User createUser(AppleIdTokenClaims claims) {
@@ -70,16 +94,16 @@ public class AuthService {
                 .build();
 
         User saved = userRepository.save(user);
-        log.info("Nouveau compte Byzi cree (userdId={})", saved.getId());
+        log.info("Nouveau compte Byzi cree (userId={})", saved.getId());
         return saved;
     }
 
     private AuthResponse issueTokens(User user) {
         String refreshToken = refreshTokenService.issue(user);
-        return buildReponse(user, refreshToken);
+        return buildResponse(user, refreshToken);
     }
 
-    private AuthResponse buildReponse(User user, String refreshToken) {
+    private AuthResponse buildResponse(User user, String refreshToken) {
         String accessToken = jwtService.generateAccessToken(user.getId(), user.getRole());
         return new AuthResponse(
                 user.getId(),
