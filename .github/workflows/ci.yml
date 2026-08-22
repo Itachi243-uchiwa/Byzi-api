@@ -1,0 +1,112 @@
+# CI backend (story 00.6 du backlog).
+#
+# Le build tourne ici et NON dans le Dockerfile : l'image de production est construite
+# avec -DskipTests (cf. Dockerfile), precisement parce que les tests ont leur place dans
+# une etape dediee et versionnee, pas dans chaque construction d'image.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Un push qui suit de pres le precedent annule le build devenu obsolete : inutile de
+# payer deux fois pour un commit deja remplace.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build et tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer le JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          # Met en cache ~/.m2 entre deux executions : sans cela, chaque build
+          # retelecharge l'integralite des dependances Spring Boot.
+          cache: 'maven'
+
+      # "verify" et non "test" : c'est la phase verify qui declenche le controle de
+      # couverture JaCoCo (seuil bloquant de 80% d'instructions, cf. pom.xml). Un simple
+      # "mvn test" laisserait passer une regression de couverture sans rien signaler.
+      #
+      # Les tests d'integration tournent sur H2 (profil "test"), donc aucun service
+      # PostgreSQL n'est necessaire ici. Les migrations Flyway sont bien jouees : c'est
+      # ce qui garantit que le schema teste est le schema deploye.
+      - name: Build, tests et couverture
+        run: ./mvnw -B verify
+
+      # Conserve le rapport meme quand le build echoue : c'est justement dans ce cas
+      # qu'on a besoin de savoir quelle classe est passee sous le seuil.
+      - name: Publier le rapport de couverture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  docker:
+    name: Construction de l'image
+    runs-on: ubuntu-latest
+    # Ne construit l'image que si les tests passent : publier une image dont on ne sait
+    # pas si elle fonctionne n'a aucun interet.
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Verifie que le Dockerfile multi-etapes construit bien de bout en bout. On ne
+      # pousse pas l'image ici : la publication vers un registre viendra avec le
+      # deploiement automatique, et demande des secrets qui n'ont pas leur place
+      # dans un build de pull request.
+      - name: Verifier que l'image se construit
+        run: docker build -t byzi-api:${{ github.sha }} .
+
+  security:
+    name: Analyse des vulnerabilites
+    runs-on: ubuntu-latest
+    # Ne bloque pas les pull requests : la base de CVE du NVD evolue tous les jours, et
+    # une CVE publiee dans la nuit ferait echouer une PR sans aucun rapport avec son
+    # contenu. Le rapport est produit et archive, l'arbitrage reste humain.
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      # La base de donnees du NVD pese plusieurs centaines de Mo : sans ce cache, chaque
+      # execution la retelecharge integralement (plusieurs dizaines de minutes).
+      - name: Cache de la base NVD
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository/org/owasp/dependency-check-data
+          key: nvd-${{ runner.os }}
+
+      # Le plugin est declare dans le pom SANS execution liee a une phase : il n'alourdit
+      # donc jamais un "mvn verify" local, et n'est invoque qu'explicitement, ici.
+      - name: OWASP Dependency-Check
+        run: ./mvnw -B org.owasp:dependency-check-maven:check
+
+      - name: Publier le rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: target/dependency-check-report.html
+          retention-days: 14
+          if-no-files-found: ignore

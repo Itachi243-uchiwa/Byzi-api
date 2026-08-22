@@ -1,0 +1,54 @@
+# Veille de securite sur les dependances (audit backend - FAI-05).
+#
+# C'est la seule veille CVE automatique du projet : sans elle, une faille publiee dans
+# Spring Boot, Nimbus ou le driver PostgreSQL passerait inapercue jusqu'a la prochaine
+# mise a jour manuelle. Gratuit et natif GitHub.
+version: 2
+
+updates:
+  - package-ecosystem: "maven"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    # Sans cette limite, une seule montee de version de Spring Boot ouvre une dizaine de
+    # pull requests simultanees et le bruit finit par etre ignore.
+    open-pull-requests-limit: 5
+    labels:
+      - "dependances"
+      - "securite"
+    groups:
+      # Les modules Spring Boot doivent monter ENSEMBLE : les mettre a jour un par un
+      # produit des combinaisons de versions que personne n'a testees.
+      spring:
+        patterns:
+          - "org.springframework*"
+      # Idem pour le reste : une PR groupee par lot de correctifs mineurs, plutot qu'une
+      # PR par artefact.
+      mineur-et-correctif:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "org.springframework*"
+        update-types:
+          - "minor"
+          - "patch"
+
+  # Les actions GitHub sont du code executable avec acces au depot : elles se mettent a
+  # jour comme n'importe quelle autre dependance.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependances"
+
+  # L'image de base du Dockerfile (eclipse-temurin:21-jre-alpine) porte elle aussi des
+  # CVE systeme, independantes du code Java.
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependances"
+      - "securite"
