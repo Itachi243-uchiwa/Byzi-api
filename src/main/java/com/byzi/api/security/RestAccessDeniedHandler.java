@@ -1,38 +1,35 @@
 package com.byzi.api.security;
 
-import com.byzi.api.dto.common.ApiError;
+import com.byzi.api.exception.ApiErrorWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.jspecify.annotations.NonNull;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.time.Instant;
 
+/**
+ * Requete authentifiee mais sans le role requis : 403 au format ApiError. A distinguer du
+ * 401 de {@link RestAuthenticationEntryPoint}, qui signale l'absence d'authentification.
+ */
 @Component
 public class RestAccessDeniedHandler implements AccessDeniedHandler {
 
-    private final ObjectMapper objectMapper;
+    private final ApiErrorWriter errorWriter;
 
-    public RestAccessDeniedHandler(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    public RestAccessDeniedHandler(ApiErrorWriter errorWriter) {
+        this.errorWriter = errorWriter;
     }
 
     @Override
-    public void handle(HttpServletRequest request, HttpServletResponse response,
-                       @NonNull AccessDeniedException accessDeniedException) throws IOException {
-        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-        response.setContentType("application/json");
-        ApiError error = new ApiError(
-                Instant.now(),
-                403,
-                "forbidden",
-                "Acces refuse.",
-                request.getRequestURI()
-        );
-        response.getWriter().write(objectMapper.writeValueAsString(error));
+    public void handle(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            @NonNull AccessDeniedException accessDeniedException
+    ) throws IOException {
+        errorWriter.write(request, response, HttpStatus.FORBIDDEN, "forbidden", "Acces refuse.");
     }
 }

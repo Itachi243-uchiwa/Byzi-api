@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import com.byzi.api.dto.common.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -61,13 +62,13 @@ public class AppBlockRuleController {
                     + "regles modifiees depuis cet instant sont renvoyees, tombstones compris "
                     + "(champ deletedAt non nul), triees par updatedAt croissant.")
     @GetMapping
-    public ResponseEntity<Page<AppBlockRuleResponse>> list(
+    public ResponseEntity<PageResponse<AppBlockRuleResponse>> list(
             @Parameter(description = "Instant ISO-8601. Active le mode delta.", example = "2026-08-22T10:15:30Z")
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant updatedSince,
             @PageableDefault(size = 50) Pageable pageable
     ) {
-        return ResponseEntity.ok(appBlockRuleService.list(SecurityUtils.currentUserId(), updatedSince, pageable));
+        return ResponseEntity.ok(PageResponse.from(appBlockRuleService.list(SecurityUtils.currentUserId(), updatedSince, pageable)));
     }
 
     @Operation(summary = "Supprime une regle de blocage",

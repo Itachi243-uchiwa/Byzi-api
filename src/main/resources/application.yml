@@ -46,6 +46,15 @@ logging:
     root: INFO
     com.byzi.api: INFO
     org.springframework.security: INFO
+  pattern:
+    # Insere l'identifiant de requete (RequestIdFilter) dans le motif par defaut de Spring
+    # Boot, qui reserve cet emplacement. Passer par "correlation" plutot que par une
+    # redefinition complete du motif conserve la coloration et l'alignement d'origine, et
+    # evite d'avoir a resuivre les evolutions du format entre versions.
+    #
+    # Le ":-" rend le champ vide hors requete HTTP (demarrage, taches planifiees) plutot que
+    # d'y afficher la mention "requestId_IS_UNDEFINED".
+    correlation: "[%X{requestId:-}] "
 
 byzi:
   security:
@@ -77,12 +86,20 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        # metrics n'est PAS public : la chaine de securite reserve tout /actuator autre que
+        # /health au role ADMIN. Sans cette regle, n'importe quel utilisateur de l'app,
+        # simplement authentifie, pouvait lire les endpoints de supervision.
+        include: health,info,metrics
   endpoint:
     health:
       # Ne pas exposer le detail des composants (DB, disque...) publiquement, meme sur
       # l'endpoint de sante - reduit la surface d'information exploitable (OWASP A05).
       show-details: never
+      # Sondes liveness/readiness distinctes, attendues par Docker et les orchestrateurs.
+      # La distinction est ce qui evite qu'un redemarrage soit declenche pour une base
+      # momentanement injoignable : "vivant mais pas pret" n'est pas "a redemarrer".
+      probes:
+        enabled: true
 
 springdoc:
   swagger-ui:

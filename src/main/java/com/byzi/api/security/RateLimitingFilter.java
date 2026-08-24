@@ -1,12 +1,15 @@
 package com.byzi.api.security;
 
+import com.byzi.api.exception.ApiErrorWriter;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -81,6 +84,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
             new Surface("/api/v1/webhooks/", 600));
 
     private final List<Surface> surfaces;
+    private final ApiErrorWriter errorWriter;
 
     /**
      * Caffeine et non une ConcurrentHashMap : la map precedente n'evacuait jamais ses entrees.
@@ -90,11 +94,12 @@ public class RateLimitingFilter extends OncePerRequestFilter {
      */
     private final Cache<String, Window> windowsByClient;
 
-    public RateLimitingFilter() {
-        this(DEFAULT_SURFACES);
+    public RateLimitingFilter(ApiErrorWriter errorWriter) {
+        this(errorWriter, DEFAULT_SURFACES);
     }
 
-    public RateLimitingFilter(List<Surface> surfaces) {
+    public RateLimitingFilter(ApiErrorWriter errorWriter, List<Surface> surfaces) {
+        this.errorWriter = errorWriter;
         this.surfaces = List.copyOf(surfaces);
         this.windowsByClient = Caffeine.newBuilder()
                 // Deux fenetres : assez pour qu'une entree survive a la fenetre qu'elle mesure,
@@ -124,10 +129,15 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         }
 
         if (window.count.incrementAndGet() > surface.maxRequestsPerWindow()) {
-            response.setStatus(429); // Too Many Requests
-            response.setContentType("application/json");
-            response.getWriter().write("""
-                    {"error":"too_many_requests","message":"Trop de tentatives, reessaie dans une minute."}""");
+            // Retry-After exige par la norme HTTP sur un 429, et surtout utile : sans lui, un
+            // client qui se fait limiter n'a d'autre choix que de deviner, et le plus souvent
+            // il repart aussitot - ce qui prolonge son propre blocage. La valeur est celle de
+            // la fenetre, majorant du temps d'attente restant.
+            response.setHeader(HttpHeaders.RETRY_AFTER, String.valueOf(WINDOW.toSeconds()));
+            // Meme structure que toutes les autres erreurs de l'API : ce filtre ecrivait
+            // jusqu'ici un objet JSON d'une forme qui lui etait propre, sans statut ni chemin.
+            errorWriter.write(request, response, HttpStatus.TOO_MANY_REQUESTS, "too_many_requests",
+                    "Trop de tentatives, reessaie dans une minute.");
             return;
         }
 

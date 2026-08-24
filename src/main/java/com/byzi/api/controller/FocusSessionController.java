@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import com.byzi.api.dto.common.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -63,13 +64,13 @@ public class FocusSessionController {
                     + "(champ deletedAt non nul), triees par updatedAt croissant. Le client retient le "
                     + "updatedAt du dernier element recu comme point de reprise.")
     @GetMapping
-    public ResponseEntity<Page<FocusSessionResponse>> list(
+    public ResponseEntity<PageResponse<FocusSessionResponse>> list(
             @Parameter(description = "Instant ISO-8601. Active le mode delta.", example = "2026-08-22T10:15:30Z")
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant updatedSince,
             @PageableDefault(size = 50, sort = "startedAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return ResponseEntity.ok(focusSessionService.list(SecurityUtils.currentUserId(), updatedSince, pageable));
+        return ResponseEntity.ok(PageResponse.from(focusSessionService.list(SecurityUtils.currentUserId(), updatedSince, pageable)));
     }
 
     @Operation(summary = "Supprime une session de focus",

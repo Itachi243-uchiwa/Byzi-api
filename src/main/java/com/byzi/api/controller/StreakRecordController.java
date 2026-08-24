@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import com.byzi.api.dto.common.PageResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -62,13 +63,13 @@ public class StreakRecordController {
                     + "streaks modifies depuis cet instant sont renvoyes, tombstones compris "
                     + "(champ deletedAt non nul), tries par updatedAt croissant.")
     @GetMapping
-    public ResponseEntity<Page<StreakRecordResponse>> list(
+    public ResponseEntity<PageResponse<StreakRecordResponse>> list(
             @Parameter(description = "Instant ISO-8601. Active le mode delta.", example = "2026-08-22T10:15:30Z")
             @RequestParam(required = false)
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant updatedSince,
             @PageableDefault(size = 90, sort = "day", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        return ResponseEntity.ok(streakRecordService.list(SecurityUtils.currentUserId(), updatedSince, pageable));
+        return ResponseEntity.ok(PageResponse.from(streakRecordService.list(SecurityUtils.currentUserId(), updatedSince, pageable)));
     }
 
     @Operation(summary = "Supprime un streak",

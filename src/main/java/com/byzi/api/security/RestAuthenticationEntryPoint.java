@@ -1,38 +1,38 @@
 package com.byzi.api.security;
 
-import com.byzi.api.dto.common.ApiError;
+import com.byzi.api.exception.ApiErrorWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.time.Instant;
 
+/**
+ * Reponse a une requete API non authentifiee : un 401 au format ApiError, jamais la
+ * redirection vers un formulaire de connexion que Spring Security produirait par defaut -
+ * l'app iOS ne saurait qu'en faire.
+ */
 @Component
 public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
-    private final ObjectMapper objectMapper;
+    private final ApiErrorWriter errorWriter;
 
-    public RestAuthenticationEntryPoint(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
+    public RestAuthenticationEntryPoint(ApiErrorWriter errorWriter) {
+        this.errorWriter = errorWriter;
     }
 
     @Override
-    public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException {
-        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        response.setContentType("application/json");
-        ApiError error = new ApiError(
-                Instant.now(),
-                401,
-                "Unauthorized",
-                "AUthentification requise ou token invalide.",
-                request.getRequestURI()
-        );
-        response.getWriter().write(objectMapper.writeValueAsString(error));
-
+    public void commence(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            AuthenticationException authException
+    ) throws IOException {
+        // Le code etait "Unauthorized" : ni le snake_case du reste de l'API, ni une valeur
+        // que le client puisse comparer sans se demander laquelle des deux graphies arrive.
+        errorWriter.write(request, response, HttpStatus.UNAUTHORIZED, "unauthorized",
+                "Authentification requise ou token invalide.");
     }
-
 }

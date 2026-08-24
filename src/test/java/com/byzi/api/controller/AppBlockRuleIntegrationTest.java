@@ -194,4 +194,27 @@ class AppBlockRuleIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.size").value(100));
     }
+
+    @Test
+    void paginationEnvelopeIsAStableContract() throws Exception {
+        upsert(tokenA, UUID.randomUUID(), body(OPAQUE_BLOB, 60, "09:00", "18:00", true, Instant.now()), 200);
+
+        // Les controllers renvoyaient un Page<T> de Spring Data serialise tel quel, avec son
+        // objet "pageable", son "sort" imbrique deux fois et ses drapeaux "first"/"empty" -
+        // une forme que Spring Data documente comme susceptible de changer entre versions.
+        // Le client Swift sera genere sur cette reponse : elle doit etre a nous.
+        mockMvc.perform(get("/api/v1/app-block-rules")
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(50))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.last").value(true))
+                .andExpect(jsonPath("$.pageable").doesNotExist())
+                .andExpect(jsonPath("$.sort").doesNotExist())
+                .andExpect(jsonPath("$.numberOfElements").doesNotExist())
+                .andExpect(jsonPath("$.empty").doesNotExist());
+    }
 }

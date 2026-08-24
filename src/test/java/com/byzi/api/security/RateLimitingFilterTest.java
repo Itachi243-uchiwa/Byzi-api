@@ -3,8 +3,10 @@ package com.byzi.api.security;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.byzi.api.exception.ApiErrorWriter;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 
@@ -27,7 +29,7 @@ class RateLimitingFilterTest {
 
     @BeforeEach
     void setUp() {
-        filter = new RateLimitingFilter();
+        filter = new RateLimitingFilter(new ApiErrorWriter(new ObjectMapper()));
         chain = mock(FilterChain.class);
     }
 
@@ -99,12 +101,29 @@ class RateLimitingFilterTest {
     }
 
     @Test
-    void blockedResponseIsJson() throws Exception {
+    void blockedResponseUsesTheSharedApiErrorShape() throws Exception {
         for (int i = 0; i < MAX_REQUESTS; i++) {
             callOnce("/api/v1/auth/apple", "10.0.0.7");
         }
-        // Le client est l'app iOS : elle attend du JSON, y compris sur les erreurs.
-        assertThat(callOnce("/api/v1/auth/apple", "10.0.0.7").getContentType()).isEqualTo("application/json");
+        MockHttpServletResponse blocked = callOnce("/api/v1/auth/apple", "10.0.0.7");
+
+        // Le client est l'app iOS : elle attend du JSON, et surtout LA meme structure que
+        // pour toutes les autres erreurs - statut, code, message, chemin.
+        assertThat(blocked.getContentType()).startsWith("application/json");
+        assertThat(blocked.getContentAsString())
+                .contains("\"status\":429")
+                .contains("\"error\":\"too_many_requests\"")
+                .contains("\"path\":\"/api/v1/auth/apple\"");
+    }
+
+    @Test
+    void blockedResponseTellsTheClientWhenToRetry() throws Exception {
+        for (int i = 0; i < MAX_REQUESTS; i++) {
+            callOnce("/api/v1/auth/apple", "10.0.0.13");
+        }
+        // Sans Retry-After, un client limite repart aussitot et prolonge son propre blocage.
+        assertThat(callOnce("/api/v1/auth/apple", "10.0.0.13").getHeader("Retry-After"))
+                .isEqualTo("60");
     }
 
     @Test
@@ -134,6 +153,7 @@ class RateLimitingFilterTest {
         // L'endpoint est necessairement en permitAll() : sans aucun plafond, son secret
         // partage pourrait etre martele indefiniment.
         RateLimitingFilter narrow = new RateLimitingFilter(
+                new ApiErrorWriter(new ObjectMapper()),
                 List.of(new RateLimitingFilter.Surface("/api/v1/webhooks/", 3)));
 
         for (int i = 0; i < 3; i++) {

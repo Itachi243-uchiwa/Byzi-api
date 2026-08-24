@@ -1,5 +1,6 @@
 package com.byzi.api.config;
 
+import com.byzi.api.exception.ApiErrorWriter;
 import com.byzi.api.security.RateLimitingFilter;
 import com.byzi.api.security.RestAccessDeniedHandler;
 import com.byzi.api.security.RestAuthenticationEntryPoint;
@@ -55,6 +56,7 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final RestAccessDeniedHandler accessDeniedHandler;
     private final JwtService jwtService;
+    private final ApiErrorWriter apiErrorWriter;
 
     @Value("${byzi.security.cors.allowed-origins}")
     private List<String> allowedOrigins;
@@ -62,11 +64,13 @@ public class SecurityConfig {
     public SecurityConfig(
             RestAuthenticationEntryPoint authenticationEntryPoint,
             RestAccessDeniedHandler accessDeniedHandler,
-            JwtService jwtService
+            JwtService jwtService,
+            ApiErrorWriter apiErrorWriter
     ) {
         this.authenticationEntryPoint = authenticationEntryPoint;
         this.accessDeniedHandler = accessDeniedHandler;
         this.jwtService = jwtService;
+        this.apiErrorWriter = apiErrorWriter;
     }
 
     @Bean
@@ -76,7 +80,7 @@ public class SecurityConfig {
 
     @Bean
     public RateLimitingFilter rateLimitingFilter() {
-        return new RateLimitingFilter();
+        return new RateLimitingFilter(apiErrorWriter);
     }
 
     /**
@@ -203,8 +207,20 @@ public class SecurityConfig {
                         // aucun JWT possible. L'authentification se fait par secret partage verifie
                         // dans le controller (WebhookAuthenticator), pas par cette chaine.
                         .requestMatchers("/api/v1/webhooks/**").permitAll()
+                        // Le dispatch vers /error doit rester ouvert : c'est par lui que passent les
+                        // erreurs de TOUTE l'application, back-office compris. L'exiger authentifie
+                        // transformerait chaque 404 en 401, y compris pour un visiteur non connecte,
+                        // et masquerait la vraie erreur derriere une erreur d'authentification.
+                        // Aucune donnee n'y transite : ApiErrorAttributes n'expose que statut,
+                        // code, message generique et chemin.
+                        .requestMatchers("/error").permitAll()
                         // Sonde de sante (load balancer / orchestrateur), pas de donnee sensible exposee.
                         .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // Tout le reste de l'actuator est reserve aux ADMIN. Il tombait sinon dans
+                        // le "anyRequest().authenticated()" plus bas, c'est-a-dire lisible par
+                        // n'importe quel utilisateur de l'app muni d'un JWT valide - alors que ces
+                        // endpoints decrivent l'etat interne du serveur.
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
                         // Documentation API - a restreindre/desactiver en production si besoin (application-prod.yml).
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         // Back-office (EPIC-09) : reserve au role ADMIN, verifie en plus a chaque

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<!--/* Page d'erreur des clients HTML, c'est-a-dire du back-office uniquement : l'app iOS
+       recoit le meme /error au format JSON, mis en forme par ApiErrorAttributes.
+
+       Sans ce template, le back-office affichait la page blanche par defaut de Spring Boot,
+       qui expose le statut brut et n'offre aucun retour vers l'application. Elle reutilise
+       la mise en page du formulaire de connexion, seul gabarit du back-office qui ne suppose
+       pas une session ouverte - une erreur peut survenir avant comme apres l'authentification.
+
+       Aucun detail technique n'est affiche : ni exception, ni trace. Le back-office manipule
+       des donnees personnelles, et cette page peut etre atteinte sans etre authentifie. */-->
+<head th:replace="~{admin/fragments/layout :: pageHead('Erreur')}"></head>
+<body>
+<div class="login">
+    <div class="login__panel">
+        <img class="login__logo" th:src="@{/admin/images/logo.png}"
+             alt="Byzi - Become the manager of your time.">
+        <p class="login__tagline">Back-office</p>
+
+        <div class="alert alert--error">
+            <strong th:text="${status} ?: 'Erreur'">Erreur</strong>
+            <span th:text="${message} ?: 'Une erreur inattendue est survenue.'">
+                Une erreur inattendue est survenue.
+            </span>
+        </div>
+
+        <a class="btn btn--primary btn--block" th:href="@{/admin}">Retour au back-office</a>
+    </div>
+</div>
+</body>
+</html>
