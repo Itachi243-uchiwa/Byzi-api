@@ -31,6 +31,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     long countBySubscriptionStatus(SubscriptionStatus status);
 
+    /**
+     * Recherche par code de parrainage (backlog 10.8). Insensible a la casse : le code est
+     * emis en majuscules mais saisi a la main par le filleul, souvent lu sur une capture
+     * d'ecran. Refuser "a7k2mq" quand le code est "A7K2MQ" serait une friction gratuite.
+     */
+    Optional<User> findByReferralCodeIgnoreCase(String referralCode);
+
+    boolean existsByReferralCode(String referralCode);
+
     long countByCreatedAtAfter(Instant since);
 
     /**

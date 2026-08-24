@@ -19,6 +19,7 @@ public class AppBlockRuleMapper {
                 .dailyLimitMinutes(request.dailyLimitMinutes())
                 .scheduleStart(request.scheduleStart())
                 .scheduleEnd(request.scheduleEnd())
+                .scheduleDays(request.scheduleDays())
                 .isActive(request.active())
                 .build();
     }
@@ -28,6 +29,7 @@ public class AppBlockRuleMapper {
         entity.setDailyLimitMinutes(request.dailyLimitMinutes());
         entity.setScheduleStart(request.scheduleStart());
         entity.setScheduleEnd(request.scheduleEnd());
+        entity.setScheduleDays(request.scheduleDays());
         entity.setActive(request.active());
     }
 
@@ -38,6 +40,7 @@ public class AppBlockRuleMapper {
                 entity.getDailyLimitMinutes(),
                 entity.getScheduleStart(),
                 entity.getScheduleEnd(),
+                entity.getScheduleDays(),
                 entity.isActive(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),

@@ -15,8 +15,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -69,8 +71,13 @@ class AppBlockRuleIntegrationTest {
 
     private String body(String selectionData, Integer limit, String start, String end,
                         boolean active, Instant clientUpdatedAt) {
+        return body(selectionData, limit, start, end, null, active, clientUpdatedAt);
+    }
+
+    private String body(String selectionData, Integer limit, String start, String end,
+                        Set<DayOfWeek> days, boolean active, Instant clientUpdatedAt) {
         return objectMapper.writeValueAsString(new AppBlockRuleRequest(
-                selectionData, limit, start, end, active, clientUpdatedAt));
+                selectionData, limit, start, end, days, active, clientUpdatedAt));
     }
 
     private void upsert(String token, UUID id, String payload, int expectedStatus) throws Exception {
@@ -216,5 +223,91 @@ class AppBlockRuleIntegrationTest {
                 .andExpect(jsonPath("$.sort").doesNotExist())
                 .andExpect(jsonPath("$.numberOfElements").doesNotExist())
                 .andExpect(jsonPath("$.empty").doesNotExist());
+    }
+
+    // ------------------------------------------------- 10.7 blocage recurrent programme
+
+    @Test
+    void storesAndReturnsTheScheduledDays() throws Exception {
+        UUID id = UUID.randomUUID();
+        upsert(tokenA, id, body(OPAQUE_BLOB, null, "09:00", "18:00",
+                Set.of(DayOfWeek.MONDAY, DayOfWeek.FRIDAY), true, Instant.now()), 200);
+
+        mockMvc.perform(get("/api/v1/app-block-rules/{id}", id)
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(jsonPath("$.scheduleDays").isArray())
+                .andExpect(jsonPath("$.scheduleDays.length()").value(2))
+                .andExpect(jsonPath("$.scheduleDays[0]").value("MONDAY"))
+                .andExpect(jsonPath("$.scheduleDays[1]").value("FRIDAY"));
+    }
+
+    @Test
+    void scheduledDaysAlwaysComeBackInWeekOrder() throws Exception {
+        UUID id = UUID.randomUUID();
+        // Envoyes dans le desordre : deux appareils qui decrivent la meme semaine doivent
+        // produire la meme reponse, sinon la synchronisation voit une modification la ou il
+        // n'y en a aucune et les deux appareils se renvoient la balle indefiniment.
+        upsert(tokenA, id, body(OPAQUE_BLOB, null, "09:00", "18:00",
+                new java.util.LinkedHashSet<>(java.util.List.of(
+                        DayOfWeek.FRIDAY, DayOfWeek.TUESDAY, DayOfWeek.MONDAY)),
+                true, Instant.now()), 200);
+
+        mockMvc.perform(get("/api/v1/app-block-rules/{id}", id)
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(jsonPath("$.scheduleDays[0]").value("MONDAY"))
+                .andExpect(jsonPath("$.scheduleDays[1]").value("TUESDAY"))
+                .andExpect(jsonPath("$.scheduleDays[2]").value("FRIDAY"));
+    }
+
+    @Test
+    void ruleWithoutScheduledDaysStillMeansEveryDay() throws Exception {
+        UUID id = UUID.randomUUID();
+        upsert(tokenA, id, body(OPAQUE_BLOB, null, "09:00", "18:00", true, Instant.now()), 200);
+
+        // Les regles creees avant l'introduction du champ ne doivent pas changer de sens :
+        // l'absence de jours vaut "tous les jours", et se lit comme une absence.
+        mockMvc.perform(get("/api/v1/app-block-rules/{id}", id)
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(jsonPath("$.scheduleDays").doesNotExist());
+    }
+
+    @Test
+    void overnightRangeIsAccepted() throws Exception {
+        // Une regle de coucher (22h - 6h) est a cheval sur minuit : la fin est "avant" le
+        // debut, et c'est parfaitement legitime.
+        upsert(tokenA, UUID.randomUUID(), body(OPAQUE_BLOB, null, "22:00", "06:00",
+                Set.of(DayOfWeek.SUNDAY), true, Instant.now()), 200);
+    }
+
+    @Test
+    void halfARangeIsRejected() throws Exception {
+        // "A partir de 9h" sans borne de fin est une regle que le client ne saurait pas
+        // armer : le serveur l'acceptait en silence et l'utilisateur la croyait active.
+        upsert(tokenA, UUID.randomUUID(),
+                body(OPAQUE_BLOB, null, "09:00", null, true, Instant.now()), 400);
+    }
+
+    @Test
+    void scheduledDaysWithoutARangeAreRejected() throws Exception {
+        // Des jours sans plage horaire ne disent rien de plus que la regle elle-meme, qui
+        // bloque deja en permanence quand elle est active.
+        upsert(tokenA, UUID.randomUUID(), body(OPAQUE_BLOB, null, null, null,
+                Set.of(DayOfWeek.MONDAY), true, Instant.now()), 400);
+    }
+
+    @Test
+    void scheduledDaysCanBeClearedByAnUpdate() throws Exception {
+        UUID id = UUID.randomUUID();
+        upsert(tokenA, id, body(OPAQUE_BLOB, null, "09:00", "18:00",
+                Set.of(DayOfWeek.MONDAY), true, Instant.now()), 200);
+
+        // Repasser a "tous les jours" doit etre possible : un PUT est un remplacement
+        // complet de la regle, pas une fusion.
+        upsert(tokenA, id, body(OPAQUE_BLOB, null, "09:00", "18:00", true,
+                Instant.now().plusSeconds(60)), 200);
+
+        mockMvc.perform(get("/api/v1/app-block-rules/{id}", id)
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(jsonPath("$.scheduleDays").doesNotExist());
     }
 }

@@ -75,6 +75,12 @@ byzi:
       bootstrap-apple-subs: ${ADMIN_BOOTSTRAP_APPLE_SUBS:}
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}
+  referral:
+    # Jours offerts au filleul ET au parrain a chaque utilisation d'un code (backlog 10.8).
+    # Variable d'environnement : c'est un levier commercial, doubler l'offre le temps d'une
+    # campagne ne doit demander ni deploiement ni mise a jour de l'app.
+    trial-extension-days: ${REFERRAL_TRIAL_EXTENSION_DAYS:7}
+
   webhook:
     revenuecat:
       # Secret partage a recopier dans le dashboard RevenueCat (champ "Authorization header").

@@ -22,6 +22,7 @@ public record AccountExportResponse(
         List<StreakRecordResponse> streakRecords,
         List<AppBlockRuleResponse> appBlockRules,
         List<SubscriptionEventExport> subscriptionHistory,
+        ReferralExport referral,
         Instant exportedAt
 ) {
 }

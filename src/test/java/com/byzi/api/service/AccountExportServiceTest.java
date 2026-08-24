@@ -14,6 +14,7 @@ import com.byzi.api.mapper.StreakRecordMapper;
 import com.byzi.api.repository.AppBlockRuleRepository;
 import com.byzi.api.repository.FocusSessionRepository;
 import com.byzi.api.repository.StreakRecordRepository;
+import com.byzi.api.repository.ReferralRedemptionRepository;
 import com.byzi.api.repository.SubscriptionEventRepository;
 import com.byzi.api.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +60,8 @@ class AccountExportServiceTest {
     private AppBlockRuleRepository appBlockRuleRepository;
     @Mock
     private SubscriptionEventRepository subscriptionEventRepository;
+    @Mock
+    private ReferralRedemptionRepository referralRedemptionRepository;
 
     private AccountExportService service;
 
@@ -68,8 +71,8 @@ class AccountExportServiceTest {
     void setUp() {
         service = new AccountExportService(
                 userRepository, focusSessionRepository, streakRecordRepository, appBlockRuleRepository,
-                subscriptionEventRepository, new FocusSessionMapper(), new StreakRecordMapper(),
-                new AppBlockRuleMapper());
+                subscriptionEventRepository, referralRedemptionRepository, new FocusSessionMapper(),
+                new StreakRecordMapper(), new AppBlockRuleMapper());
 
         user = User.builder()
                 .id(UUID.randomUUID())

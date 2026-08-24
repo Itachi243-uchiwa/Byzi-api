@@ -57,4 +57,15 @@ public class User extends BaseEntity {
     @Column(name = "password_hash", length = 72)
     private String passwordHash;
 
+    /**
+     * Code de parrainage (backlog 10.8), null tant que l'utilisateur n'a pas ouvert son ecran
+     * de partage : il est cree a la demande par ReferralService, pas a l'inscription.
+     * <p>
+     * updatable reste vrai a dessein - le champ passe de null a une valeur une fois dans la
+     * vie du compte. En revanche il n'est jamais REgenere : les codes deja partages par
+     * l'utilisateur doivent continuer de fonctionner.
+     */
+    @Column(name = "referral_code", unique = true, length = 10)
+    private String referralCode;
+
 }

@@ -37,6 +37,21 @@ public class AppBlockRule extends BaseEntity {
     @Column(name = "schedule_end", length = 5)
     private String scheduleEnd;
 
+    /**
+     * Jours ou la plage horaire s'applique (backlog 10.7). {@code null} signifie "tous les
+     * jours" : c'est l'etat des regles creees avant l'introduction du champ, dont le
+     * comportement ne doit pas changer.
+     * <p>
+     * Le serveur ne fait que stocker et synchroniser cette valeur - c'est l'app iOS qui
+     * arme le blocage au bon moment, comme pour scheduleStart/scheduleEnd. Le fuseau horaire
+     * est donc celui de l'appareil, et volontairement : une regle "9h-18h du lundi au
+     * vendredi" doit suivre l'utilisateur qui voyage, pas rester accrochee au fuseau de son
+     * inscription.
+     */
+    @Convert(converter = ScheduleDaysConverter.class)
+    @Column(name = "schedule_days", length = 13)
+    private java.util.Set<java.time.DayOfWeek> scheduleDays;
+
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private boolean isActive = true;

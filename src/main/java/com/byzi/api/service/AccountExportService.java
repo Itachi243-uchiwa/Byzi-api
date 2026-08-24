@@ -3,6 +3,7 @@ package com.byzi.api.service;
 import com.byzi.api.domain.User;
 import com.byzi.api.dto.account.AccountExportProfile;
 import com.byzi.api.dto.account.AccountExportResponse;
+import com.byzi.api.dto.account.ReferralExport;
 import com.byzi.api.dto.account.SubscriptionEventExport;
 import com.byzi.api.exception.ResourceNotFoundException;
 import com.byzi.api.mapper.AppBlockRuleMapper;
@@ -10,6 +11,7 @@ import com.byzi.api.mapper.FocusSessionMapper;
 import com.byzi.api.mapper.StreakRecordMapper;
 import com.byzi.api.repository.AppBlockRuleRepository;
 import com.byzi.api.repository.FocusSessionRepository;
+import com.byzi.api.repository.ReferralRedemptionRepository;
 import com.byzi.api.repository.StreakRecordRepository;
 import com.byzi.api.repository.SubscriptionEventRepository;
 import com.byzi.api.repository.UserRepository;
@@ -58,6 +60,7 @@ public class AccountExportService {
     private final StreakRecordRepository streakRecordRepository;
     private final AppBlockRuleRepository appBlockRuleRepository;
     private final SubscriptionEventRepository subscriptionEventRepository;
+    private final ReferralRedemptionRepository referralRedemptionRepository;
     private final FocusSessionMapper focusSessionMapper;
     private final StreakRecordMapper streakRecordMapper;
     private final AppBlockRuleMapper appBlockRuleMapper;
@@ -80,7 +83,27 @@ public class AccountExportService {
                 loadAll(appBlockRuleRepository::findAllByUser_IdAndDeletedAtIsNull, userId,
                         appBlockRuleMapper::toResponse),
                 subscriptionHistory(userId),
+                referral(user),
                 Instant.now());
+    }
+
+    /**
+     * Ne restitue que la part du parrainage qui appartient au demandeur : son code, combien
+     * de comptes l'ont utilise, et s'il a lui-meme ete parraine. Jamais l'identite du parrain
+     * ni celle des filleuls - cf. {@link ReferralExport}.
+     */
+    private ReferralExport referral(User user) {
+        return referralRedemptionRepository.findByReferred_Id(user.getId())
+                .map(redemption -> new ReferralExport(
+                        user.getReferralCode(),
+                        referralRedemptionRepository.countByReferrer_Id(user.getId()),
+                        redemption.getRedeemedAt(),
+                        redemption.getReferredDays()))
+                .orElseGet(() -> new ReferralExport(
+                        user.getReferralCode(),
+                        referralRedemptionRepository.countByReferrer_Id(user.getId()),
+                        null,
+                        null));
     }
 
     private AccountExportProfile toProfile(User user) {
