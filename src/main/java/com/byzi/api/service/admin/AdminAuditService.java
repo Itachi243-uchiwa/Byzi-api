@@ -23,6 +23,7 @@ public class AdminAuditService {
     public static final String ACTION_EXTEND_TRIAL = "EXTEND_TRIAL";
     public static final String ACTION_MARK_REFUNDED = "MARK_REFUNDED";
     public static final String ACTION_DELETE_ACCOUNT = "DELETE_ACCOUNT";
+    public static final String ACTION_CHANGE_ROLE = "CHANGE_ROLE";
 
     private final AdminAuditLogRepository auditLogRepository;
 

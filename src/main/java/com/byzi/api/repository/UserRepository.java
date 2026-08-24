@@ -1,5 +1,6 @@
 package com.byzi.api.repository;
 
+import com.byzi.api.domain.Role;
 import com.byzi.api.domain.SubscriptionStatus;
 import com.byzi.api.domain.User;
 import org.springframework.data.domain.Page;
@@ -30,6 +31,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Page<User> findByEmailContainingIgnoreCase(String term, Pageable pageable);
 
     long countBySubscriptionStatus(SubscriptionStatus status);
+
+    long countByRole(Role role);
 
     /**
      * Recherche par code de parrainage (backlog 10.8). Insensible a la casse : le code est

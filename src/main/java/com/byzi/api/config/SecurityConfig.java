@@ -1,5 +1,6 @@
 package com.byzi.api.config;
 
+import com.byzi.api.domain.Role;
 import com.byzi.api.exception.ApiErrorWriter;
 import com.byzi.api.security.RateLimitingFilter;
 import com.byzi.api.security.RestAccessDeniedHandler;
@@ -16,9 +17,13 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -116,6 +121,39 @@ public class SecurityConfig {
     }
 
     /**
+     * Hierarchie des roles d'administration (story 17.4).
+     * <p>
+     * ADMIN implique les deux roles specialises : une regle ecrite
+     * {@code hasRole('ADMIN_FINANCE')} est donc satisfaite par un administrateur complet, sans
+     * avoir a enumerer les roles a chaque annotation. Sans cette hierarchie, chaque
+     * @PreAuthorize devrait lister tous les roles habilites - et l'un d'eux finirait par etre
+     * oublie, ce qui fermerait silencieusement une action a l'administrateur complet.
+     * <p>
+     * La relation n'est volontairement PAS transitive entre support et finance : ce sont deux
+     * metiers distincts, pas deux niveaux d'un meme escalier.
+     */
+    @Bean
+    public RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.withDefaultRolePrefix()
+                .role(Role.ADMIN.name()).implies(Role.ADMIN_SUPPORT.name(), Role.ADMIN_FINANCE.name())
+                .build();
+    }
+
+    /**
+     * La hierarchie ci-dessus ne s'applique aux annotations @PreAuthorize que si elle est
+     * injectee dans l'evaluateur d'expressions de la securite de methode. C'est un piege
+     * classique : declarer le bean RoleHierarchy suffit pour les regles d'URL, et laisse les
+     * annotations l'ignorer en silence - un ADMIN se verrait refuser une action reservee au
+     * role finance, sans qu'aucune erreur ne le signale.
+     */
+    @Bean
+    static MethodSecurityExpressionHandler methodSecurityExpressionHandler(RoleHierarchy roleHierarchy) {
+        DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
+        handler.setRoleHierarchy(roleHierarchy);
+        return handler;
+    }
+
+    /**
      * BCrypt : algorithme lent par construction, avec sel integre. Un hash rapide (SHA-256 &
      * co.) permettrait de tester des milliards de mots de passe par seconde si la base
      * fuitait (OWASP A02 - Cryptographic Failures).
@@ -150,8 +188,11 @@ public class SecurityConfig {
                         // sans session : elles sont chargees par la page de connexion
                         // elle-meme, donc avant toute authentification.
                         .requestMatchers("/admin/login", "/admin/css/**", "/admin/images/**").permitAll()
-                        // Deny-by-default : tout le reste du back-office exige le role ADMIN.
-                        .anyRequest().hasRole("ADMIN"))
+                        // Deny-by-default : le reste du back-office exige un role d'administration,
+                        // quel qu'il soit. Le detail de ce que chaque role a le droit de FAIRE est
+                        // porte par les @PreAuthorize des services - au plus pres de l'effet, donc
+                        // valable quel que soit le point d'entree.
+                        .anyRequest().hasAnyRole(Role.adminRoleNames()))
                 .formLogin(form -> form
                         .loginPage("/admin/login")
                         .loginProcessingUrl("/admin/login")

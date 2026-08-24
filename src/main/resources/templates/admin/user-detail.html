@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{admin/fragments/layout :: pageHead('Detail utilisateur')}"></head>
 <body>
 <div class="layout">
@@ -106,7 +107,11 @@
                     <div class="card__header"><h2 class="card__title">Actions</h2></div>
                     <div class="card__body" style="display:flex; flex-direction:column; gap:20px;">
 
-                        <form method="post"
+                        <!--/* Story 17.4 - les actions financieres ne s'affichent qu'aux roles
+                               qui peuvent les executer. Masquer n'est PAS la protection : celle-ci
+                               est le @PreAuthorize du service. C'est ici une question d'usage,
+                               pour ne pas proposer au support un bouton qui lui repondra 403. */-->
+                        <form sec:authorize="hasRole('ADMIN_FINANCE')" method="post"
                               th:action="@{/admin/users/{id}/extend-trial(id=*{user.id})}"
                               class="form-row">
                             <div class="field">
@@ -117,7 +122,8 @@
                             <button type="submit" class="btn btn--primary btn--sm">Prolonger</button>
                         </form>
 
-                        <form method="post" th:action="@{/admin/users/{id}/mark-refunded(id=*{user.id})}">
+                        <form sec:authorize="hasRole('ADMIN_FINANCE')" method="post"
+                              th:action="@{/admin/users/{id}/mark-refunded(id=*{user.id})}">
                             <div class="field">
                                 <label class="field__label" for="reason">Motif du remboursement</label>
                                 <input class="input" type="text" id="reason" name="reason"
@@ -128,9 +134,29 @@
                             </button>
                         </form>
 
+                        <!--/* Story 17.4 - attribution d'un role d'administration. Reserve a
+                               l'ADMIN complet : distribuer les droits est en soi le droit le
+                               plus sensible. */-->
+                        <form sec:authorize="hasRole('ADMIN')" method="post"
+                              th:action="@{/admin/users/{id}/role(id=*{user.id})}">
+                            <div class="field">
+                                <label class="field__label" for="role">Role</label>
+                                <select class="input" id="role" name="role">
+                                    <option th:each="r : ${T(com.byzi.api.domain.Role).values()}"
+                                            th:value="${r}" th:text="${r}"
+                                            th:selected="${r} == *{user.role}"></option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn--sm" style="margin-top:10px">
+                                Appliquer le role
+                            </button>
+                        </form>
+
                         <!--/* Story 09.6 - suppression RGPD. Irreversible : confirmation
-                               explicite cote navigateur, en plus de l'audit cote serveur. */-->
-                        <form method="post" th:action="@{/admin/users/{id}/delete(id=*{user.id})}"
+                               explicite cote navigateur, en plus de l'audit cote serveur.
+                               Reservee a l'ADMIN complet (story 17.4). */-->
+                        <form sec:authorize="hasRole('ADMIN')" method="post"
+                              th:action="@{/admin/users/{id}/delete(id=*{user.id})}"
                               onsubmit="return confirm('Supprimer definitivement ce compte et toutes ses donnees ? Cette action est irreversible.');">
                             <div class="field__label" style="margin-bottom:8px">Zone sensible</div>
                             <button type="submit" class="btn btn--danger btn--sm btn--block">

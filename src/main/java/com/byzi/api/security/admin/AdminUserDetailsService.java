@@ -14,11 +14,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * Authentification du back-office : seuls les comptes ADMIN disposant d'un mot de passe
+ * Authentification du back-office : seuls les comptes portant un role d'administration
+ * (ADMIN, ADMIN_SUPPORT ou ADMIN_FINANCE - cf. story 17.4) et disposant d'un mot de passe
  * peuvent se connecter (EPIC-09.1 - "role ADMIN distinct des users").
  * <p>
  * Trois conditions sont exigees, et l'echec de n'importe laquelle produit exactement le meme
- * message : compte inexistant, compte sans role ADMIN, ou compte ADMIN sans mot de passe.
+ * message : compte inexistant, compte sans role d'administration, ou compte admin sans mot de
+ * passe.
  * Distinguer ces cas indiquerait a un attaquant quels emails existent en base et lesquels
  * sont administrateurs (OWASP A07 - enumeration de comptes).
  */
@@ -36,14 +38,17 @@ public class AdminUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException(GENERIC_FAILURE));
 
-        if (user.getRole() != Role.ADMIN || user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
+        if (!user.getRole().isAdmin() || user.getPasswordHash() == null || user.getPasswordHash().isBlank()) {
             throw new UsernameNotFoundException(GENERIC_FAILURE);
         }
 
+        // L'autorite porte le role REEL du compte, et non ADMIN en dur comme auparavant :
+        // c'est elle que lisent les @PreAuthorize, et la figer reviendrait a donner les pleins
+        // pouvoirs a tout compte capable de se connecter au back-office.
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getEmail())
                 .password(user.getPasswordHash())
-                .authorities(List.of(new SimpleGrantedAuthority("ROLE_" + Role.ADMIN.name())))
+                .authorities(List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name())))
                 .build();
     }
 }

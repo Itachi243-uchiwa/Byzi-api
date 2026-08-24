@@ -1,6 +1,8 @@
 package com.byzi.api.controller.admin;
 
+import com.byzi.api.domain.Role;
 import com.byzi.api.domain.User;
+import com.byzi.api.exception.ForbiddenOperationException;
 import com.byzi.api.repository.UserRepository;
 import com.byzi.api.service.admin.AdminUserService;
 import lombok.RequiredArgsConstructor;
@@ -81,6 +83,29 @@ public class AdminUserController {
         adminUserService.deleteAccount(id, admin.id(), admin.label());
         redirectAttributes.addFlashAttribute("success", "Compte supprime definitivement.");
         return "redirect:/admin/users";
+    }
+
+    /**
+     * Story 17.4 - attribution d'un role. Le formulaire n'est rendu qu'aux ADMIN complets, mais
+     * la verification qui compte est le @PreAuthorize du service : masquer un bouton n'empeche
+     * personne de poster l'URL a la main.
+     */
+    @PostMapping("/{id}/role")
+    public String changeRole(@PathVariable UUID id,
+                             @RequestParam Role role,
+                             Authentication authentication,
+                             RedirectAttributes redirectAttributes) {
+        AdminIdentity admin = identify(authentication);
+        try {
+            boolean canSignIn = adminUserService.changeRole(id, role, admin.id(), admin.label());
+            redirectAttributes.addFlashAttribute("success", canSignIn
+                    ? "Role mis a jour : " + role + "."
+                    : "Role mis a jour : " + role + ". Ce compte n'a pas de mot de passe et ne "
+                      + "pourra pas encore se connecter au back-office.");
+        } catch (ForbiddenOperationException e) {
+            redirectAttributes.addFlashAttribute("error", e.getMessage());
+        }
+        return "redirect:/admin/users/" + id;
     }
 
     /**
