@@ -27,6 +27,17 @@ spring:
     enabled: true
     baseline-on-migrate: false
 
+  data:
+    web:
+      pageable:
+        # @PageableDefault(size = 50) sur les controllers de synchronisation ne fixe que la
+        # valeur PAR DEFAUT, pas le maximum : un client pouvait demander ?size=2000 et forcer
+        # le chargement de 2 000 app_block_rules, dont le champ selection_data peut atteindre
+        # 200 000 caracteres - plusieurs centaines de Mo serialises en une seule reponse,
+        # soit de quoi faire tomber la JVM en un appel. Ce plafond s'applique a toutes les
+        # routes paginees, y compris celles qui seront ajoutees plus tard.
+        max-page-size: 100
+
 # Ne jamais journaliser le corps des requetes/reponses en production (peut contenir des
 # tokens ou des blobs de selection d'apps) : desactive par defaut, a n'activer qu'en dev
 # de maniere ciblee.

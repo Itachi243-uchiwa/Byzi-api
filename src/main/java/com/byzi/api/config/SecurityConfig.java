@@ -5,7 +5,9 @@ import com.byzi.api.security.RestAccessDeniedHandler;
 import com.byzi.api.security.RestAuthenticationEntryPoint;
 import com.byzi.api.security.jwt.JwtAuthenticationFilter;
 import com.byzi.api.security.jwt.JwtService;
+import jakarta.servlet.Filter;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -39,9 +41,11 @@ import java.util.List;
  * - CORS restreint a une liste blanche d'origines configurable par environnement
  * <p>
  * Les filtres custom (JwtAuthenticationFilter, RateLimitingFilter) sont declares ici comme
- * @Bean plutot que via @Component sur leur propre classe : cela evite que Spring Boot les
- * enregistre AUSSI automatiquement comme filtres servlet generiques sur toutes les requetes
- * (double execution / ordre ambigu), en plus de leur position precise dans cette chaine.
+ * @Bean plutot que via @Component sur leur propre classe, afin de maitriser leur position
+ * exacte dans chaque chaine. Attention : cela ne suffit PAS a empecher leur enregistrement
+ * automatique comme filtres servlet generiques - Spring Boot enregistre tout bean de type
+ * Filter, quelle que soit la facon dont il est declare. C'est le role des
+ * FilterRegistrationBean desactives plus bas.
  */
 @Configuration
 @EnableWebSecurity
@@ -73,6 +77,38 @@ public class SecurityConfig {
     @Bean
     public RateLimitingFilter rateLimitingFilter() {
         return new RateLimitingFilter();
+    }
+
+    /**
+     * Spring Boot enregistre automatiquement, aupres du conteneur servlet, tout bean de type
+     * Filter qu'il trouve dans le contexte - y compris ceux que l'on destine a une chaine de
+     * securite precise. Les deux filtres ci-dessus tourneraient donc DEUX fois : une fois a
+     * leur place voulue dans la chaine Spring Security, une fois sur toutes les requetes de
+     * l'application, y compris celles que la chaine n'aurait pas retenues.
+     * <p>
+     * OncePerRequestFilter neutralise aujourd'hui la seconde execution, mais c'est une
+     * protection de hasard : elle ne tient que tant que la chaine de securite s'execute en
+     * premier. On coupe donc l'enregistrement automatique a la source. C'est la maniere
+     * canonique de le faire : un FilterRegistrationBean explicite, marque setEnabled(false).
+     */
+    @Bean
+    public FilterRegistrationBean<RateLimitingFilter> rateLimitingFilterServletRegistration(
+            RateLimitingFilter filter
+    ) {
+        return disableServletRegistration(filter);
+    }
+
+    @Bean
+    public FilterRegistrationBean<JwtAuthenticationFilter> jwtAuthenticationFilterServletRegistration(
+            JwtAuthenticationFilter filter
+    ) {
+        return disableServletRegistration(filter);
+    }
+
+    private <T extends Filter> FilterRegistrationBean<T> disableServletRegistration(T filter) {
+        FilterRegistrationBean<T> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     /**
@@ -130,7 +166,12 @@ public class SecurityConfig {
                                 .includeSubDomains(true)
                                 .maxAgeInSeconds(31536000))
                         .referrerPolicy(referrer -> referrer
-                                .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN)));
+                                .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN)))
+                // Le rate limiting doit AUSSI s'appliquer ici. Declare uniquement sur la chaine
+                // API, il laissait /admin/login sans aucune protection contre le brute-force :
+                // c'est pourtant la seule authentification par mot de passe du systeme, et celle
+                // qui ouvre la suppression de comptes et les donnees de tous les utilisateurs.
+                .addFilterBefore(rateLimitingFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -183,7 +224,10 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        configuration.setAllowCredentials(true);
+        // false : l'API est stateless et purement Bearer, aucun cookie n'est jamais envoye par
+        // un client. Autoriser les credentials n'apporterait donc rien et elargirait inutilement
+        // ce que le navigateur accepte de transmettre a une origine de la liste blanche.
+        configuration.setAllowCredentials(false);
         configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

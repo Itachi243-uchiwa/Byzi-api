@@ -1,3 +1,32 @@
+server:
+  # Derriere le reverse proxy qui termine le TLS (Caddy/nginx), Tomcat ne voit que du HTTP
+  # en clair et l'IP du proxy. Cette strategie fait lire a Spring les en-tetes X-Forwarded-*,
+  # ce qui repare DEUX choses :
+  #   - getRemoteAddr() rend enfin l'IP reelle du client. Sans cela, le RateLimitingFilter
+  #     compte TOUS les utilisateurs sur la seule IP du proxy : 10 authentifications par
+  #     minute pour l'application entiere, soit une panne certaine des la mise en charge.
+  #   - les redirections de Spring Security (defaultSuccessUrl, failureUrl, logoutSuccessUrl)
+  #     et les URL absolues de la doc partent en https:// et non en http://.
+  #
+  # PREREQUIS COTE PROXY : il doit ECRASER le X-Forwarded-For recu du client, jamais y
+  # ajouter aveuglement. C'est le comportement par defaut de "reverse_proxy" en Caddy ;
+  # en nginx cela suppose "proxy_set_header X-Forwarded-For $remote_addr". Sans cette
+  # garantie, l'en-tete redevient falsifiable et la limitation de debit contournable.
+  forward-headers-strategy: framework
+
+  servlet:
+    session:
+      cookie:
+        # Le back-office est la seule partie du systeme a utiliser un cookie de session.
+        # secure    : jamais emis en clair, meme si une URL http:// traine quelque part.
+        # http-only : hors de portee de document.cookie, donc d'un XSS dans les templates.
+        # same-site : deuxieme barriere derriere le CSRF deja actif sur la chaine admin.
+        secure: true
+        http-only: true
+        same-site: strict
+      # Une session admin oubliee sur un poste partage finit par se fermer d'elle-meme.
+      timeout: 30m
+
 spring:
   jpa:
     show-sql: false
@@ -14,8 +43,15 @@ byzi:
       # (back-office, landing page) - jamais de wildcard. Injecte via variable d'environnement.
       allowed-origins: ${CORS_ALLOWED_ORIGINS}
 
-# Documentation API desactivable en production selon la politique de securite retenue par
-# l'equipe (certains choisissent de la garder derriere l'auth pour faciliter le support).
+# Desactiver l'interface Swagger sans desactiver api-docs revenait a fermer la porte en
+# laissant la fenetre ouverte : /v3/api-docs est en permitAll() et sert la specification
+# OpenAPI complete - tous les chemins, tous les schemas, toutes les contraintes de
+# validation. Ce n'est pas une faille en soi, mais c'est une cartographie offerte.
+#
+# A laisser ACTIVE en preproduction (API_DOCS_ENABLED=true) : c'est de la que le client
+# Swift de l'app iOS est genere.
 springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:false}
   swagger-ui:
     enabled: ${SWAGGER_UI_ENABLED:false}

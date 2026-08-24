@@ -126,6 +126,14 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- Cache borné du rate limiting (RateLimitingFilter). La ConcurrentHashMap précédente
+             n'évacuait jamais ses entrées : une entrée par IP, conservée indéfiniment, suffisait
+             à faire grossir le tas jusqu'à l'OutOfMemoryError. Version gérée par le parent. -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -258,14 +266,19 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- OWASP Dependency-Check : à activer en CI pour scanner les CVE des dépendances (EPIC-01.7 / qualité) -->
-            <!--
+            <!-- OWASP Dependency-Check (EPIC-01.7 / qualité).
+                 Volontairement SANS <executions> liant le plugin à une phase : il télécharge la
+                 base de CVE du NVD, plusieurs centaines de Mo, ce qui rendrait chaque "mvn verify"
+                 local insupportable. Il est invoqué explicitement par la CI, dans un job dédié qui
+                 met cette base en cache :
+
+                   mvn org.owasp:dependency-check-maven:check
+            -->
             <plugin>
                 <groupId>org.owasp</groupId>
                 <artifactId>dependency-check-maven</artifactId>
                 <version>10.0.3</version>
             </plugin>
-            -->
         </plugins>
     </build>
 </project>

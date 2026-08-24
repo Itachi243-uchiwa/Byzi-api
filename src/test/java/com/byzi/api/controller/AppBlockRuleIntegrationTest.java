@@ -180,4 +180,18 @@ class AppBlockRuleIntegrationTest {
     void negativeDailyLimitIsRejected() throws Exception {
         upsert(tokenA, UUID.randomUUID(), body(OPAQUE_BLOB, -10, null, null, true, Instant.now()), 400);
     }
+
+    @Test
+    void cappedPageSizeProtectsAgainstOversizedResponses() throws Exception {
+        // @PageableDefault(size = 50) ne fixe que la valeur PAR DEFAUT. Sans plafond, ce seul
+        // appel chargerait 2 000 regles dont le selectionData peut peser 200 000 caracteres -
+        // de quoi faire tomber la JVM en une requete. Le plafond vit dans application.yml
+        // (spring.data.web.pageable.max-page-size), donc hors de portee du code : ce test est
+        // ce qui empeche de le perdre lors d'un remaniement de configuration.
+        mockMvc.perform(get("/api/v1/app-block-rules")
+                        .param("size", "2000")
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size").value(100));
+    }
 }
