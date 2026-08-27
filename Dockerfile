@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/root/.m2 mvn -B clean package -DskipTests
 # =============================================================================
 # Etape 2 - execution
 # =============================================================================
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 
 # Utilisateur non privilegie : une faille d'execution de code dans l'application
 # ne doit pas donner root dans le conteneur (OWASP A05 - mauvaise configuration).
