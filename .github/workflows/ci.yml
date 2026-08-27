@@ -92,7 +92,7 @@ jobs:
       # La base de donnees du NVD pese plusieurs centaines de Mo : sans ce cache, chaque
       # execution la retelecharge integralement (plusieurs dizaines de minutes).
       - name: Cache de la base NVD
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.m2/repository/org/owasp/dependency-check-data
           key: nvd-${{ runner.os }}
