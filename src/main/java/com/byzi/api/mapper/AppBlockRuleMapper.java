@@ -1,6 +1,7 @@
 package com.byzi.api.mapper;
 
 import com.byzi.api.domain.AppBlockRule;
+import com.byzi.api.domain.RuleKind;
 import com.byzi.api.domain.User;
 import com.byzi.api.dto.blockrule.AppBlockRuleRequest;
 import com.byzi.api.dto.blockrule.AppBlockRuleResponse;
@@ -16,6 +17,8 @@ public class AppBlockRuleMapper {
                 .id(id)
                 .user(owner)
                 .selectionData(request.selectionData())
+                .name(nameOrEmpty(request.name()))
+                .kind(kindOrDefault(request.kind()))
                 .dailyLimitMinutes(request.dailyLimitMinutes())
                 .scheduleStart(request.scheduleStart())
                 .scheduleEnd(request.scheduleEnd())
@@ -26,6 +29,8 @@ public class AppBlockRuleMapper {
 
     public void applyUpdate(AppBlockRule entity, AppBlockRuleRequest request) {
         entity.setSelectionData(request.selectionData());
+        entity.setName(nameOrEmpty(request.name()));
+        entity.setKind(kindOrDefault(request.kind()));
         entity.setDailyLimitMinutes(request.dailyLimitMinutes());
         entity.setScheduleStart(request.scheduleStart());
         entity.setScheduleEnd(request.scheduleEnd());
@@ -37,6 +42,8 @@ public class AppBlockRuleMapper {
         return new AppBlockRuleResponse(
                 entity.getId(),
                 entity.getSelectionData(),
+                entity.getName(),
+                entity.getKind(),
                 entity.getDailyLimitMinutes(),
                 entity.getScheduleStart(),
                 entity.getScheduleEnd(),
@@ -46,5 +53,13 @@ public class AppBlockRuleMapper {
                 entity.getUpdatedAt(),
                 entity.getDeletedAt()
         );
+    }
+
+    private String nameOrEmpty(String name) {
+        return name == null ? "" : name;
+    }
+
+    private RuleKind kindOrDefault(RuleKind kind) {
+        return kind == null ? RuleKind.FOCUS : kind;
     }
 }

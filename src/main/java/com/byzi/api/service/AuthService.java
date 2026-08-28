@@ -5,7 +5,9 @@ import com.byzi.api.domain.User;
 import com.byzi.api.dto.auth.AppleSignInRequest;
 import com.byzi.api.dto.auth.AuthResponse;
 import com.byzi.api.repository.UserRepository;
+import com.byzi.api.exception.InvalidAppleTokenException;
 import com.byzi.api.security.apple.AppleIdTokenClaims;
+import com.byzi.api.security.apple.AppleNonce;
 import com.byzi.api.security.apple.AppleTokenVerifier;
 import com.byzi.api.security.jwt.JwtProperties;
 import com.byzi.api.security.jwt.JwtService;
@@ -32,6 +34,7 @@ public class AuthService {
     @Transactional
     public AuthResponse signInWithApple(AppleSignInRequest request) {
         AppleIdTokenClaims claims = appleTokenVerifier.verify(request.identityToken());
+        verifyNonce(request, claims);
 
         User user = userRepository.findByAppleSub(claims.subject())
                 .map(existing -> touchLastLogin(existing, claims))
@@ -50,6 +53,23 @@ public class AuthService {
     @Transactional
     public void signOut(UUID userId) {
         refreshTokenService.revokeAllForUser(userId);
+    }
+
+    /**
+     * Anti-rejeu (story 01.2). Des lors que le token verifie porte un claim {@code nonce} -
+     * ce qui est le cas de tout token emis pour l'app Dopamyn, qui passe toujours un nonce a
+     * Apple -, le client DOIT fournir le nonce brut correspondant. Un token intercepte et
+     * rejoue sans ce nonce brut est refuse. Les tokens sans claim {@code nonce} (aucun client
+     * reel, uniquement des mocks de test) restent acceptes tels quels.
+     */
+    private void verifyNonce(AppleSignInRequest request, AppleIdTokenClaims claims) {
+        if (claims.nonce() == null) {
+            return;
+        }
+        if (!AppleNonce.matches(request.nonce(), claims.nonce())) {
+            log.warn("Connexion Apple refusee : nonce absent ou non concordant");
+            throw new InvalidAppleTokenException("Nonce Apple invalide");
+        }
     }
 
     private User touchLastLogin(User existing, AppleIdTokenClaims claims) {

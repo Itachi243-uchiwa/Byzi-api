@@ -20,6 +20,23 @@ public class AppBlockRule extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false, updatable = false)
     private User user;
 
+    /**
+     * Libelle donne par l'utilisateur ("Reseaux sociaux", "Jeux"...). Purement descriptif,
+     * synchronise tel quel. NOT NULL en base (defaut "" pour les regles anterieures a V8).
+     */
+    @Column(name = "name", nullable = false, length = 100)
+    @Builder.Default
+    private String name = "";
+
+    /**
+     * FOCUS (bloque pendant une session de focus) ou LIMIT (creneau planifie / quota
+     * quotidien). Defaut FOCUS pour les regles anterieures a V8.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kind", nullable = false, length = 16)
+    @Builder.Default
+    private RuleKind kind = RuleKind.FOCUS;
+
     // Pas de @Lob : sur Postgres, @Lob sur un String bascule sur les "large objects" (oid),
     // qui ne se comportent pas comme une colonne texte ordinaire (pas de lecture hors
     // transaction, pas de suppression automatique). Un varchar large suffit, la taille etant

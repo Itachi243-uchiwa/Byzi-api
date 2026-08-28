@@ -105,7 +105,8 @@ public class AppleTokenVerifier {
             }
             String email = claims.getStringClaim("email");
             boolean emailVerified = parseEmailVerified(claims.getClaim("email_verified"));
-            return new AppleIdTokenClaims(subject, email, emailVerified);
+            String nonce = claims.getStringClaim("nonce");
+            return new AppleIdTokenClaims(subject, email, emailVerified, nonce);
         } catch (InvalidAppleTokenException e) {
             throw e;
         } catch (Exception e) {

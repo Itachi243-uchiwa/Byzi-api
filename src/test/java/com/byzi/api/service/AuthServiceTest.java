@@ -141,6 +141,41 @@ class AuthServiceTest {
     }
 
     @Test
+    void acceptsSignInWhenRawNonceMatchesTheTokenClaim() throws Exception {
+        String rawNonce = "nonce-brut-123";
+        String hashedClaim = sha256Hex(rawNonce);
+        when(appleTokenVerifier.verify("token"))
+                .thenReturn(new AppleIdTokenClaims("apple-sub-n1", "n@byzi.app", true, hashedClaim));
+        when(userRepository.findByAppleSub("apple-sub-n1")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(refreshTokenService.issue(any())).thenReturn("r");
+
+        AuthResponse response = authService.signInWithApple(new AppleSignInRequest("token", rawNonce));
+
+        assertThat(response.accessToken()).isNotBlank();
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    void rejectsSignInWhenNonceDoesNotMatchAndCreatesNoAccount() throws Exception {
+        String hashedClaim = sha256Hex("le-vrai-nonce");
+        when(appleTokenVerifier.verify("token"))
+                .thenReturn(new AppleIdTokenClaims("apple-sub-n2", null, true, hashedClaim));
+
+        assertThatThrownBy(() ->
+                authService.signInWithApple(new AppleSignInRequest("token", "un-autre-nonce")))
+                .isInstanceOf(InvalidAppleTokenException.class);
+
+        verify(userRepository, never()).save(any());
+    }
+
+    private static String sha256Hex(String value) throws Exception {
+        byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return java.util.HexFormat.of().formatHex(digest);
+    }
+
+    @Test
     void refreshRotatesTokenAndReturnsNewPair() {
         User user = existingUser("apple-sub-5");
         when(refreshTokenService.rotate("ancien"))

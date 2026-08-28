@@ -77,7 +77,7 @@ class AppBlockRuleIntegrationTest {
     private String body(String selectionData, Integer limit, String start, String end,
                         Set<DayOfWeek> days, boolean active, Instant clientUpdatedAt) {
         return objectMapper.writeValueAsString(new AppBlockRuleRequest(
-                selectionData, limit, start, end, days, active, clientUpdatedAt));
+                selectionData, null, null, limit, start, end, days, active, clientUpdatedAt));
     }
 
     private void upsert(String token, UUID id, String payload, int expectedStatus) throws Exception {
@@ -101,6 +101,27 @@ class AppBlockRuleIntegrationTest {
                 .andExpect(jsonPath("$.dailyLimitMinutes").value(60))
                 .andExpect(jsonPath("$.scheduleStart").value("09:00"))
                 .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    void nameAndKindRoundTripAndDefaultWhenOmitted() throws Exception {
+        UUID named = UUID.randomUUID();
+        upsert(tokenA, named, objectMapper.writeValueAsString(new AppBlockRuleRequest(
+                OPAQUE_BLOB, "Reseaux sociaux", com.byzi.api.domain.RuleKind.LIMIT,
+                60, "09:00", "18:00", null, true, Instant.now())), 200);
+
+        mockMvc.perform(get("/api/v1/app-block-rules/{id}", named)
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(jsonPath("$.name").value("Reseaux sociaux"))
+                .andExpect(jsonPath("$.kind").value("LIMIT"));
+
+        UUID bare = UUID.randomUUID();
+        upsert(tokenA, bare, body(OPAQUE_BLOB, 60, "09:00", "18:00", true, Instant.now()), 200);
+
+        mockMvc.perform(get("/api/v1/app-block-rules/{id}", bare)
+                        .header("Authorization", "Bearer " + tokenA))
+                .andExpect(jsonPath("$.name").value(""))
+                .andExpect(jsonPath("$.kind").value("FOCUS"));
     }
 
     @Test

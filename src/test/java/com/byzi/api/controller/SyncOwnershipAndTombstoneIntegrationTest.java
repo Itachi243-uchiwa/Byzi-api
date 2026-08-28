@@ -234,7 +234,7 @@ class SyncOwnershipAndTombstoneIntegrationTest {
 
     private void putRule(String token, UUID id, int dailyLimitMinutes, Instant clientUpdatedAt) throws Exception {
         AppBlockRuleRequest request = new AppBlockRuleRequest(
-                OPAQUE_SELECTION, dailyLimitMinutes, "09:00", "17:00", null, true, clientUpdatedAt);
+                OPAQUE_SELECTION, null, null, dailyLimitMinutes, "09:00", "17:00", null, true, clientUpdatedAt);
         mockMvc.perform(put("/api/v1/app-block-rules/{id}", id)
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
