@@ -66,7 +66,10 @@ byzi:
       refresh-token-ttl-seconds: 2592000    # 30 jours
     apple:
       issuer: "https://appleid.apple.com"
-      audience: ${APPLE_BUNDLE_ID:com.byzi.app}
+      # Doit valoir EXACTEMENT le bundle id de l'app iOS : c'est le claim "aud"
+      # du token Apple, et AppleTokenVerifier rejette tout token dont l'aud ne
+      # correspond pas. L'app Dopamyn est signee sous "Dopamyn-APP.dopamyn-app".
+      audience: ${APPLE_BUNDLE_ID:Dopamyn-APP.dopamyn-app}
       jwks-url: "https://appleid.apple.com/auth/keys"
     admin:
       # Liste d'appleSub separes par des virgules, promus ADMIN au demarrage s'ils existent
