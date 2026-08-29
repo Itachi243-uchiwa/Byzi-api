@@ -9,12 +9,7 @@ logging:
 # En dev uniquement : origines CORS larges pour tester depuis le simulateur iOS / Postman.
 byzi:
   security:
-    # Valeurs de repli LOCALES, pour que "spring-boot:run" demarre sans avoir a exporter la
-    # moitie de l'environnement. Elles restent surchargeables par variable d'environnement.
-    #
-    # Ces defauts n'existent volontairement PAS dans application.yml ni en prod : la
-    # configuration de production doit echouer bruyamment si JWT_SECRET est absent, plutot que
-    # de signer des tokens avec un secret public connu de tout le depot.
+
     jwt:
       secret: ${JWT_SECRET:dev-only-secret-key-at-least-32-bytes-long-do-not-deploy}
     cors:
