@@ -263,7 +263,14 @@ public class SecurityConfig {
                         // endpoints decrivent l'etat interne du serveur.
                         .requestMatchers("/actuator/**").hasRole("ADMIN")
                         // Documentation API - a restreindre/desactiver en production si besoin (application-prod.yml).
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        //
+                        // "/swagger-ui.html" est liste EN PLUS de "/swagger-ui/**" : c'est le chemin
+                        // configure dans application.yml et celui que tout le projet documente, mais
+                        // il ne tombe pas sous le motif "/swagger-ui/**" (pas de separateur avant
+                        // ".html"). Sans lui, la redirection vers /swagger-ui/index.html repondait 401
+                        // et la documentation paraissait cassee sur tout environnement deploye, alors
+                        // meme que SWAGGER_UI_ENABLED valait true.
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         // Back-office (EPIC-09) : reserve au role ADMIN, verifie en plus a chaque
                         // methode sensible par @PreAuthorize dans les controllers admin (defense en profondeur).
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")

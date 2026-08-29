@@ -1,3 +1,15 @@
+server:
+  # Render - comme la plupart des PaaS - impose le port d'ecoute par la variable PORT et
+  # ignore le EXPOSE du Dockerfile des que cette variable existe. Spring ne fait PAS le
+  # lien tout seul : la variable d'environnement qui alimente "server.port" s'appelle
+  # SERVER_PORT, pas PORT. Sans cette ligne, le conteneur ecoute sur 8080 pendant que le
+  # routeur de Render sonde le port qu'il a choisi, et le deploiement expire en
+  # "no open ports detected" sans le moindre message d'erreur applicatif.
+  #
+  # Le repli sur 8080 conserve le comportement local (docker-compose, ./mvnw spring-boot:run)
+  # a l'identique : la variable PORT n'existe pas sur un poste de developpement.
+  port: ${PORT:8080}
+
 spring:
   application:
     name: byzi-api
