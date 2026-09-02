@@ -10,10 +10,12 @@ import com.byzi.api.dto.account.AccountExportResponse;
 import com.byzi.api.exception.ResourceNotFoundException;
 import com.byzi.api.mapper.AppBlockRuleMapper;
 import com.byzi.api.mapper.TodoTaskMapper;
+import com.byzi.api.mapper.WeeklyObjectiveMapper;
 import com.byzi.api.mapper.FocusSessionMapper;
 import com.byzi.api.mapper.StreakRecordMapper;
 import com.byzi.api.repository.AppBlockRuleRepository;
 import com.byzi.api.repository.TodoTaskRepository;
+import com.byzi.api.repository.WeeklyObjectiveRepository;
 import com.byzi.api.repository.FocusSessionRepository;
 import com.byzi.api.repository.StreakRecordRepository;
 import com.byzi.api.repository.ReferralRedemptionRepository;
@@ -63,6 +65,8 @@ class AccountExportServiceTest {
     @Mock
     private TodoTaskRepository todoTaskRepository;
     @Mock
+    private WeeklyObjectiveRepository weeklyObjectiveRepository;
+    @Mock
     private SubscriptionEventRepository subscriptionEventRepository;
     @Mock
     private ReferralRedemptionRepository referralRedemptionRepository;
@@ -75,9 +79,9 @@ class AccountExportServiceTest {
     void setUp() {
         service = new AccountExportService(
                 userRepository, focusSessionRepository, streakRecordRepository, appBlockRuleRepository,
-                todoTaskRepository, subscriptionEventRepository, referralRedemptionRepository,
-                new FocusSessionMapper(), new StreakRecordMapper(), new AppBlockRuleMapper(),
-                new TodoTaskMapper());
+                todoTaskRepository, weeklyObjectiveRepository, subscriptionEventRepository,
+                referralRedemptionRepository, new FocusSessionMapper(), new StreakRecordMapper(),
+                new AppBlockRuleMapper(), new TodoTaskMapper(), new WeeklyObjectiveMapper());
 
         user = User.builder()
                 .id(UUID.randomUUID())
@@ -179,6 +183,8 @@ class AccountExportServiceTest {
         when(appBlockRuleRepository.findAllByUser_IdAndDeletedAtIsNull(eq(user.getId()), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(todoTaskRepository.findAllByUser_IdAndDeletedAtIsNull(eq(user.getId()), any(Pageable.class)))
+                .thenReturn(Page.empty());
+        when(weeklyObjectiveRepository.findAllByUser_IdAndDeletedAtIsNull(eq(user.getId()), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(subscriptionEventRepository.findAllByUser_IdOrderByOccurredAtDesc(user.getId()))
                 .thenReturn(List.of());
