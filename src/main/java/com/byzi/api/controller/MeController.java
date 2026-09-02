@@ -1,6 +1,7 @@
 package com.byzi.api.controller;
 
 import com.byzi.api.dto.account.MeResponse;
+import com.byzi.api.dto.account.UpdateProfileRequest;
 import com.byzi.api.security.SecurityUtils;
 import com.byzi.api.service.AccountProfileService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -8,7 +9,10 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -31,5 +35,13 @@ public class MeController {
     @GetMapping
     public ResponseEntity<MeResponse> me() {
         return ResponseEntity.ok(accountProfileService.currentProfile(SecurityUtils.currentUserId()));
+    }
+
+    @Operation(summary = "Met a jour le prenom de l'utilisateur courant",
+            description = "Seul le prenom est modifiable ici. L'email vient d'Apple, le statut "
+                    + "d'abonnement de RevenueCat, le role du back-office.")
+    @PutMapping
+    public ResponseEntity<MeResponse> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
+        return ResponseEntity.ok(accountProfileService.updateProfile(SecurityUtils.currentUserId(), request));
     }
 }

@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class AdminUserServiceStreakTest {
 
     private final AdminUserService service =
-            new AdminUserService(null, null, null, null, null, null, null);
+            new AdminUserService(null, null, null, null, null, null, null, null);
 
     private final LocalDate today = LocalDate.now();
 

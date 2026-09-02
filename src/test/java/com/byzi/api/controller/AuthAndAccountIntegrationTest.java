@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -257,4 +258,44 @@ class AuthAndAccountIntegrationTest {
                 .andExpect(jsonPath("$.appBlockRules.length()").value(0))
                 .andExpect(jsonPath("$.subscriptionHistory.length()").value(0));
     }
+
+    // --- Prenom du profil (backlog app 0ter T8) ---
+
+    @Test
+    void updatesAndClearsGivenName() throws Exception {
+        User user = userRepository.save(User.builder()
+                .id(java.util.UUID.randomUUID())
+                .appleSub("apple-sub-" + java.util.UUID.randomUUID())
+                .role(Role.USER)
+                .build());
+        String token = jwtService.generateAccessToken(user.getId(), Role.USER);
+
+        // Les espaces sont rognes.
+        mockMvc.perform(put("/api/v1/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"givenName\":\"  Martinez  \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.givenName").value("Martinez"));
+
+        mockMvc.perform(get("/api/v1/me").header("Authorization", "Bearer " + token))
+                .andExpect(jsonPath("$.givenName").value("Martinez"));
+
+        // Chaine vide == null : une seule representation de "pas de prenom".
+        mockMvc.perform(put("/api/v1/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"givenName\":\"   \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.givenName").doesNotExist());
+    }
+
+    @Test
+    void updatingProfileRequiresAuthentication() throws Exception {
+        mockMvc.perform(put("/api/v1/me")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"givenName\":\"X\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
 }

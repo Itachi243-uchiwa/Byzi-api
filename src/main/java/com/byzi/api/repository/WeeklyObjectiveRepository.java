@@ -19,6 +19,9 @@ public interface WeeklyObjectiveRepository extends JpaRepository<WeeklyObjective
 
     Page<WeeklyObjective> findAllByUser_IdAndDeletedAtIsNull(UUID userId, Pageable pageable);
 
+    /** Objectifs atteints, pour le calcul de serie cote back-office (0ter T10). */
+    java.util.List<WeeklyObjective> findAllByUser_IdAndIsAchievedTrueAndDeletedAtIsNullAndAchievedAtIsNotNull(UUID userId);
+
     /** Delta de synchronisation, tombstones compris. */
     Page<WeeklyObjective> findAllByUser_IdAndUpdatedAtGreaterThanEqual(UUID userId, Instant updatedSince, Pageable pageable);
 }

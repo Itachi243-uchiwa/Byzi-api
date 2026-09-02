@@ -17,6 +17,7 @@ import java.util.UUID;
 public record MeResponse(
         UUID userId,
         String email,
+        String givenName,
         SubscriptionStatus subscriptionStatus,
         Instant subscriptionExpiresAt,
         boolean hasActiveAccess

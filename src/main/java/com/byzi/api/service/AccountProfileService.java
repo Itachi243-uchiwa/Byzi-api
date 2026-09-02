@@ -3,6 +3,7 @@ package com.byzi.api.service;
 import com.byzi.api.domain.SubscriptionStatus;
 import com.byzi.api.domain.User;
 import com.byzi.api.dto.account.MeResponse;
+import com.byzi.api.dto.account.UpdateProfileRequest;
 import com.byzi.api.exception.ResourceNotFoundException;
 import com.byzi.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,9 +33,30 @@ public class AccountProfileService {
         return new MeResponse(
                 user.getId(),
                 user.getEmail(),
+                user.getGivenName(),
                 user.getSubscriptionStatus(),
                 user.getSubscriptionExpiresAt(),
                 hasActiveAccess(user.getSubscriptionStatus(), user.getSubscriptionExpiresAt()));
+    }
+
+    /**
+     * Met a jour le profil modifiable par l'utilisateur (backlog app 0ter T8). Seul le prenom
+     * l'est : cf. {@link UpdateProfileRequest} pour la raison.
+     * <p>
+     * Le prenom est rogne, et une chaine vide vaut {@code null} - deux representations du
+     * meme etat ("pas de prenom") rendraient la comparaison de deltas dependante de laquelle
+     * a ete ecrite, exactement comme pour ScheduleDaysConverter.
+     */
+    @Transactional
+    public MeResponse updateProfile(UUID userId, UpdateProfileRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Compte introuvable"));
+
+        String trimmed = request.givenName() == null ? null : request.givenName().trim();
+        user.setGivenName(trimmed == null || trimmed.isEmpty() ? null : trimmed);
+        userRepository.save(user);
+
+        return currentProfile(userId);
     }
 
     /**

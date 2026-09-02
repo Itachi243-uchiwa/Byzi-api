@@ -43,7 +43,7 @@ class AdminUserServiceRoleChangeTest {
 
     @BeforeEach
     void setUp() {
-        service = new AdminUserService(userRepository, null, null, null, null, null, auditService);
+        service = new AdminUserService(userRepository, null, null, null, null, null, null, auditService);
     }
 
     private User account(UUID id, Role role, String passwordHash) {

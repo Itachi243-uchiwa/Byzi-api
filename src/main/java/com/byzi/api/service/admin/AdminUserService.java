@@ -9,6 +9,7 @@ import com.byzi.api.exception.ForbiddenOperationException;
 import com.byzi.api.exception.ResourceNotFoundException;
 import com.byzi.api.repository.FocusSessionRepository;
 import com.byzi.api.repository.StreakRecordRepository;
+import com.byzi.api.repository.WeeklyObjectiveRepository;
 import com.byzi.api.repository.SubscriptionEventRepository;
 import com.byzi.api.repository.UserRepository;
 import com.byzi.api.service.AccountDeletionService;
@@ -43,6 +44,7 @@ public class AdminUserService {
     private final UserRepository userRepository;
     private final FocusSessionRepository focusSessionRepository;
     private final StreakRecordRepository streakRecordRepository;
+    private final WeeklyObjectiveRepository weeklyObjectiveRepository;
     private final SubscriptionEventRepository subscriptionEventRepository;
     private final SubscriptionService subscriptionService;
     private final AccountDeletionService accountDeletionService;
@@ -67,10 +69,19 @@ public class AdminUserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Compte introuvable"));
 
-        List<LocalDate> goalReachedDays = streakRecordRepository
-                .findTop60ByUser_IdAndGoalReachedTrueAndDeletedAtIsNullOrderByDayDesc(userId)
-                .stream()
-                .map(StreakRecord::getDay)
+        // Un jour "tenu" n'est plus seulement un jour d'objectif de focus atteint :
+        // depuis 0ter T10, un objectif HEBDOMADAIRE atteint tient aussi son jour.
+        // Sans cette union, le back-office afficherait une serie plus courte que
+        // celle que l'utilisateur voit dans l'app, et le support conclurait a un bug.
+        List<LocalDate> goalReachedDays = java.util.stream.Stream.concat(
+                        streakRecordRepository
+                                .findTop60ByUser_IdAndGoalReachedTrueAndDeletedAtIsNullOrderByDayDesc(userId)
+                                .stream()
+                                .map(StreakRecord::getDay),
+                        objectiveHeldDays(userId).stream())
+                .distinct()
+                .sorted(java.util.Comparator.reverseOrder())
+                .limit(60)
                 .toList();
 
         return new AdminUserDetail(
@@ -80,6 +91,22 @@ public class AdminUserService {
                 goalReachedDays.stream().limit(14).toList(),
                 subscriptionEventRepository.findAllByUser_IdOrderByOccurredAtDesc(userId),
                 auditService.forUser(userId));
+    }
+
+    /**
+     * Jours tenus grace a un objectif hebdomadaire atteint (0ter T10).
+     * <p>
+     * achievedAt est un Instant : on le ramene au jour civil dans le fuseau du SERVEUR, faute
+     * de mieux - l'app, elle, raisonne dans le fuseau de l'appareil. L'ecart possible d'un
+     * jour est assume ici : cette valeur ne sert qu'a l'affichage support, jamais a un calcul
+     * facture a l'utilisateur.
+     */
+    private List<LocalDate> objectiveHeldDays(UUID userId) {
+        return weeklyObjectiveRepository
+                .findAllByUser_IdAndIsAchievedTrueAndDeletedAtIsNullAndAchievedAtIsNotNull(userId)
+                .stream()
+                .map(objective -> LocalDate.ofInstant(objective.getAchievedAt(), java.time.ZoneOffset.UTC))
+                .toList();
     }
 
     /**

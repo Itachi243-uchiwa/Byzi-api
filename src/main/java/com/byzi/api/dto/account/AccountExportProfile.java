@@ -18,6 +18,7 @@ public record AccountExportProfile(
         UUID userId,
         String appleSub,
         String email,
+        String givenName,
         SubscriptionStatus subscriptionStatus,
         Instant subscriptionExpiresAt,
         Instant createdAt,

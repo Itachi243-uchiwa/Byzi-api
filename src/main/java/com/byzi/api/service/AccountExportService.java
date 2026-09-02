@@ -123,6 +123,7 @@ public class AccountExportService {
                 user.getId(),
                 user.getAppleSub(),
                 user.getEmail(),
+                user.getGivenName(),
                 user.getSubscriptionStatus(),
                 user.getSubscriptionExpiresAt(),
                 user.getCreatedAt(),

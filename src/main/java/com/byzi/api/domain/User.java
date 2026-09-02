@@ -24,6 +24,14 @@ public class User extends BaseEntity {
     @Column(name = "email", unique = true)
     private String email;
 
+    /**
+     * Prenom, fourni par Apple a la premiere autorisation OU saisi par l'utilisateur dans
+     * l'app (backlog app 0ter T8). Nullable : la copie retombe sur une formulation sans
+     * prenom quand il est absent.
+     */
+    @Column(name = "given_name", length = 100)
+    private String givenName;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 32)
     @Builder.Default
