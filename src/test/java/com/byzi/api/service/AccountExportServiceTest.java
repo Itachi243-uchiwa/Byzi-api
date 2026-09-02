@@ -9,9 +9,11 @@ import com.byzi.api.domain.User;
 import com.byzi.api.dto.account.AccountExportResponse;
 import com.byzi.api.exception.ResourceNotFoundException;
 import com.byzi.api.mapper.AppBlockRuleMapper;
+import com.byzi.api.mapper.TodoTaskMapper;
 import com.byzi.api.mapper.FocusSessionMapper;
 import com.byzi.api.mapper.StreakRecordMapper;
 import com.byzi.api.repository.AppBlockRuleRepository;
+import com.byzi.api.repository.TodoTaskRepository;
 import com.byzi.api.repository.FocusSessionRepository;
 import com.byzi.api.repository.StreakRecordRepository;
 import com.byzi.api.repository.ReferralRedemptionRepository;
@@ -59,6 +61,8 @@ class AccountExportServiceTest {
     @Mock
     private AppBlockRuleRepository appBlockRuleRepository;
     @Mock
+    private TodoTaskRepository todoTaskRepository;
+    @Mock
     private SubscriptionEventRepository subscriptionEventRepository;
     @Mock
     private ReferralRedemptionRepository referralRedemptionRepository;
@@ -71,8 +75,9 @@ class AccountExportServiceTest {
     void setUp() {
         service = new AccountExportService(
                 userRepository, focusSessionRepository, streakRecordRepository, appBlockRuleRepository,
-                subscriptionEventRepository, referralRedemptionRepository, new FocusSessionMapper(),
-                new StreakRecordMapper(), new AppBlockRuleMapper());
+                todoTaskRepository, subscriptionEventRepository, referralRedemptionRepository,
+                new FocusSessionMapper(), new StreakRecordMapper(), new AppBlockRuleMapper(),
+                new TodoTaskMapper());
 
         user = User.builder()
                 .id(UUID.randomUUID())
@@ -172,6 +177,8 @@ class AccountExportServiceTest {
         when(streakRecordRepository.findAllByUser_IdAndDeletedAtIsNullOrderByDayDesc(eq(user.getId()), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(appBlockRuleRepository.findAllByUser_IdAndDeletedAtIsNull(eq(user.getId()), any(Pageable.class)))
+                .thenReturn(Page.empty());
+        when(todoTaskRepository.findAllByUser_IdAndDeletedAtIsNull(eq(user.getId()), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(subscriptionEventRepository.findAllByUser_IdOrderByOccurredAtDesc(user.getId()))
                 .thenReturn(List.of());

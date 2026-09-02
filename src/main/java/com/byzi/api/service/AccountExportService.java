@@ -9,11 +9,13 @@ import com.byzi.api.exception.ResourceNotFoundException;
 import com.byzi.api.mapper.AppBlockRuleMapper;
 import com.byzi.api.mapper.FocusSessionMapper;
 import com.byzi.api.mapper.StreakRecordMapper;
+import com.byzi.api.mapper.TodoTaskMapper;
 import com.byzi.api.repository.AppBlockRuleRepository;
 import com.byzi.api.repository.FocusSessionRepository;
 import com.byzi.api.repository.ReferralRedemptionRepository;
 import com.byzi.api.repository.StreakRecordRepository;
 import com.byzi.api.repository.SubscriptionEventRepository;
+import com.byzi.api.repository.TodoTaskRepository;
 import com.byzi.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -59,11 +61,13 @@ public class AccountExportService {
     private final FocusSessionRepository focusSessionRepository;
     private final StreakRecordRepository streakRecordRepository;
     private final AppBlockRuleRepository appBlockRuleRepository;
+    private final TodoTaskRepository todoTaskRepository;
     private final SubscriptionEventRepository subscriptionEventRepository;
     private final ReferralRedemptionRepository referralRedemptionRepository;
     private final FocusSessionMapper focusSessionMapper;
     private final StreakRecordMapper streakRecordMapper;
     private final AppBlockRuleMapper appBlockRuleMapper;
+    private final TodoTaskMapper todoTaskMapper;
 
     @Transactional(readOnly = true)
     public AccountExportResponse export(UUID userId) {
@@ -82,6 +86,8 @@ public class AccountExportService {
                         streakRecordMapper::toResponse),
                 loadAll(appBlockRuleRepository::findAllByUser_IdAndDeletedAtIsNull, userId,
                         appBlockRuleMapper::toResponse),
+                loadAll(todoTaskRepository::findAllByUser_IdAndDeletedAtIsNull, userId,
+                        todoTaskMapper::toResponse),
                 subscriptionHistory(userId),
                 referral(user),
                 Instant.now());

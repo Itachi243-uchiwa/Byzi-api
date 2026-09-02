@@ -3,6 +3,7 @@ package com.byzi.api.dto.account;
 import com.byzi.api.dto.blockrule.AppBlockRuleResponse;
 import com.byzi.api.dto.session.FocusSessionResponse;
 import com.byzi.api.dto.streak.StreakRecordResponse;
+import com.byzi.api.dto.todo.TodoTaskResponse;
 
 import java.time.Instant;
 import java.util.List;
@@ -21,6 +22,7 @@ public record AccountExportResponse(
         List<FocusSessionResponse> focusSessions,
         List<StreakRecordResponse> streakRecords,
         List<AppBlockRuleResponse> appBlockRules,
+        List<TodoTaskResponse> todoTasks,
         List<SubscriptionEventExport> subscriptionHistory,
         ReferralExport referral,
         Instant exportedAt
