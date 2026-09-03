@@ -21,6 +21,7 @@ public class WeeklyObjectiveMapper {
                 .linkedTaskIds(request.linkedTaskIds())
                 .isAchieved(request.achieved())
                 .achievedAt(achievedAtOrNull(request))
+                .clientCreatedAt(sanitizedClientCreatedAt(request.clientCreatedAt()))
                 .build();
     }
 
@@ -40,7 +41,7 @@ public class WeeklyObjectiveMapper {
                 entity.getLinkedTaskIds(),
                 entity.isAchieved(),
                 entity.getAchievedAt(),
-                entity.getCreatedAt(),
+                writtenAt(entity),
                 entity.getUpdatedAt(),
                 entity.getDeletedAt()
         );
@@ -53,5 +54,26 @@ public class WeeklyObjectiveMapper {
      */
     private Instant achievedAtOrNull(WeeklyObjectiveRequest request) {
         return request.achieved() ? request.achievedAt() : null;
+    }
+
+    /**
+     * Date a afficher cote client : « ecrit le … ».
+     * <p>
+     * On expose la date d'ECRITURE, pas la date d'audit. Le client ne connait qu'un seul
+     * createdAt et c'est celui-la qui l'interesse ; createdAt (arrivee sur le serveur) reste
+     * interne. Repli sur l'audit quand le client ne l'a pas envoye - une date approchee vaut
+     * mieux que pas de date, et c'est exactement la meme valeur qu'avant ce changement.
+     */
+    private Instant writtenAt(WeeklyObjective entity) {
+        Instant client = entity.getClientCreatedAt();
+        return client != null ? client : entity.getCreatedAt();
+    }
+
+    /** Meme garde-fou que sur TodoTaskMapper : pas de date d'ecriture dans le futur. */
+    private Instant sanitizedClientCreatedAt(Instant candidate) {
+        if (candidate == null || candidate.isAfter(Instant.now())) {
+            return null;
+        }
+        return candidate;
     }
 }

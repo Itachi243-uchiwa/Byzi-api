@@ -34,6 +34,12 @@ public record TodoTaskRequest(
         /** Instant de completion, fourni par le client. Ignore si {@code done} est faux. */
         Instant doneAt,
 
-        Instant clientUpdatedAt
+        Instant clientUpdatedAt,
+
+        /**
+         * Instant d'ecriture sur l'appareil. Optionnel : sans lui le serveur date l'element de
+         * son arrivee, ce qui suffit tant que le client est en ligne.
+         */
+        Instant clientCreatedAt
 ) {
 }

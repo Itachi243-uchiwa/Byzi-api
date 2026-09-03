@@ -6,6 +6,9 @@ import java.util.UUID;
 /**
  * @param weekKey   premier jour de la semaine de rattachement ("AAAA-MM-JJ"), calcule par
  *                  l'app selon la locale de l'appareil.
+ * @param createdAt jour ou la tache a ete ECRITE sur l'appareil (clientCreatedAt), et non
+ *                  l'instant ou elle a atteint le serveur : c'est ce que l'app affiche
+ *                  (« Ecrit le … »). Repli sur la date d'audit pour les lignes anterieures.
  * @param deletedAt tombstone : non nul uniquement dans les reponses du delta de
  *                  synchronisation (parametre updatedSince).
  */

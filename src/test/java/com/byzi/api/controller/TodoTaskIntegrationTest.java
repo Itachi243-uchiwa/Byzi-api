@@ -66,7 +66,8 @@ class TodoTaskIntegrationTest {
 
     private String body(String title, boolean done, Instant clientUpdatedAt) {
         return objectMapper.writeValueAsString(new TodoTaskRequest(
-                title, null, "2026-08-31", "2026-09-06", done, done ? clientUpdatedAt : null, clientUpdatedAt));
+                title, null, "2026-08-31", "2026-09-06", done, done ? clientUpdatedAt : null,
+                clientUpdatedAt, clientUpdatedAt));
     }
 
     private void upsert(String token, UUID id, String payload, int expectedStatus) throws Exception {
@@ -93,14 +94,14 @@ class TodoTaskIntegrationTest {
     @Test
     void rejectsMalformedWeekKey() throws Exception {
         String payload = objectMapper.writeValueAsString(new TodoTaskRequest(
-                "Tache", null, "semaine-36", null, false, null, Instant.now()));
+                "Tache", null, "semaine-36", null, false, null, Instant.now(), null));
         upsert(tokenA, UUID.randomUUID(), payload, 400);
     }
 
     @Test
     void rejectsBlankTitle() throws Exception {
         String payload = objectMapper.writeValueAsString(new TodoTaskRequest(
-                "   ", null, "2026-08-31", null, false, null, Instant.now()));
+                "   ", null, "2026-08-31", null, false, null, Instant.now(), null));
         upsert(tokenA, UUID.randomUUID(), payload, 400);
     }
 
@@ -119,6 +120,42 @@ class TodoTaskIntegrationTest {
         mockMvc.perform(get("/api/v1/todos/{id}", id).header("Authorization", "Bearer " + tokenA))
                 .andExpect(jsonPath("$.done").value(false))
                 .andExpect(jsonPath("$.doneAt").doesNotExist());
+    }
+
+    /**
+     * La date renvoyee est celle ou la tache a ete ECRITE sur l'appareil, pas celle ou elle est
+     * arrivee sur le serveur. Sans ca, une tache notee hors ligne la veille au soir s'afficherait
+     * dans l'app au jour de la synchronisation.
+     */
+    @Test
+    void createdAtReflectsTheDayTheTaskWasWrittenOnTheDevice() throws Exception {
+        UUID id = UUID.randomUUID();
+        Instant writtenYesterday = Instant.now().minus(1, ChronoUnit.DAYS);
+        String payload = objectMapper.writeValueAsString(new TodoTaskRequest(
+                "Ecrite hier soir", null, "2026-08-31", null, false, null,
+                Instant.now(), writtenYesterday));
+
+        upsert(tokenA, id, payload, 200);
+
+        mockMvc.perform(get("/api/v1/todos/{id}", id).header("Authorization", "Bearer " + tokenA))
+                .andExpect(jsonPath("$.createdAt").value(writtenYesterday.toString()));
+    }
+
+    /**
+     * Une date d'ecriture dans le futur est refusee : horloge dereglee ou client hostile. On
+     * retombe sur la date serveur, donc une date proche de maintenant - jamais celle envoyee.
+     */
+    @Test
+    void rejectsAWrittenDateInTheFuture() throws Exception {
+        UUID id = UUID.randomUUID();
+        Instant future = Instant.now().plus(30, ChronoUnit.DAYS);
+        String payload = objectMapper.writeValueAsString(new TodoTaskRequest(
+                "Venue du futur", null, "2026-08-31", null, false, null, Instant.now(), future));
+
+        upsert(tokenA, id, payload, 200);
+
+        mockMvc.perform(get("/api/v1/todos/{id}", id).header("Authorization", "Bearer " + tokenA))
+                .andExpect(jsonPath("$.createdAt").value(org.hamcrest.Matchers.not(future.toString())));
     }
 
     /** Last-write-wins : une ecriture plus ancienne que l'etat serveur ne s'applique pas. */

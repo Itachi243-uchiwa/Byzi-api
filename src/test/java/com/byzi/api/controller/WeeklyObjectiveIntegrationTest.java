@@ -71,7 +71,8 @@ class WeeklyObjectiveIntegrationTest {
 
     private String body(String title, Set<UUID> linked, boolean achieved, Instant clientUpdatedAt) {
         return objectMapper.writeValueAsString(new WeeklyObjectiveRequest(
-                title, "2026-08-31", linked, achieved, achieved ? clientUpdatedAt : null, clientUpdatedAt));
+                title, "2026-08-31", linked, achieved, achieved ? clientUpdatedAt : null,
+                clientUpdatedAt, clientUpdatedAt));
     }
 
     private void upsert(String token, UUID id, String payload, int expectedStatus) throws Exception {
@@ -138,9 +139,9 @@ class WeeklyObjectiveIntegrationTest {
     @Test
     void rejectsMalformedWeekKeyAndBlankTitle() throws Exception {
         upsert(tokenA, UUID.randomUUID(), objectMapper.writeValueAsString(new WeeklyObjectiveRequest(
-                "Objectif", "S36", Set.of(), false, null, Instant.now())), 400);
+                "Objectif", "S36", Set.of(), false, null, Instant.now(), null)), 400);
         upsert(tokenA, UUID.randomUUID(), objectMapper.writeValueAsString(new WeeklyObjectiveRequest(
-                "  ", "2026-08-31", Set.of(), false, null, Instant.now())), 400);
+                "  ", "2026-08-31", Set.of(), false, null, Instant.now(), null)), 400);
     }
 
     @Test

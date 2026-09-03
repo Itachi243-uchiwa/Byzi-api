@@ -6,6 +6,7 @@ import com.byzi.api.dto.todo.TodoTaskRequest;
 import com.byzi.api.dto.todo.TodoTaskResponse;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.UUID;
 
 @Component
@@ -21,6 +22,7 @@ public class TodoTaskMapper {
                 .dueDate(request.dueDate())
                 .isDone(request.done())
                 .doneAt(doneAtOrNull(request))
+                .clientCreatedAt(sanitizedClientCreatedAt(request.clientCreatedAt()))
                 .build();
     }
 
@@ -42,7 +44,7 @@ public class TodoTaskMapper {
                 entity.getDueDate(),
                 entity.isDone(),
                 entity.getDoneAt(),
-                entity.getCreatedAt(),
+                writtenAt(entity),
                 entity.getUpdatedAt(),
                 entity.getDeletedAt()
         );
@@ -52,7 +54,31 @@ public class TodoTaskMapper {
      * Une tache non cochee ne garde pas de date de completion : sans ce nettoyage, decocher
      * une tache laissait un doneAt orphelin, que l'app aurait pu compter dans une serie.
      */
-    private java.time.Instant doneAtOrNull(TodoTaskRequest request) {
+    private Instant doneAtOrNull(TodoTaskRequest request) {
         return request.done() ? request.doneAt() : null;
+    }
+
+    /**
+     * Date a afficher cote client : « ecrit le … ».
+     * <p>
+     * On expose la date d'ECRITURE, pas la date d'audit. Le client ne connait qu'un seul
+     * createdAt et c'est celui-la qui l'interesse ; createdAt (arrivee sur le serveur) reste
+     * interne. Repli sur l'audit quand le client ne l'a pas envoye - une date approchee vaut
+     * mieux que pas de date, et c'est exactement la meme valeur qu'avant ce changement.
+     */
+    private Instant writtenAt(TodoTask entity) {
+        Instant client = entity.getClientCreatedAt();
+        return client != null ? client : entity.getCreatedAt();
+    }
+
+    /**
+     * Une date d'ecriture dans le futur n'a aucun sens : horloge deregle ou client hostile. On
+     * la refuse plutot que de la stocker - le serveur retombera sur sa propre date.
+     */
+    private Instant sanitizedClientCreatedAt(Instant candidate) {
+        if (candidate == null || candidate.isAfter(Instant.now())) {
+            return null;
+        }
+        return candidate;
     }
 }

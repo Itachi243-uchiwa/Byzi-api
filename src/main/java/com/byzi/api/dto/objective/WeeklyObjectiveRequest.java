@@ -33,6 +33,9 @@ public record WeeklyObjectiveRequest(
         /** Instant d'atteinte, fourni par le client. Ignore si {@code achieved} est faux. */
         Instant achievedAt,
 
-        Instant clientUpdatedAt
+        Instant clientUpdatedAt,
+
+        /** Instant d'ecriture sur l'appareil. Meme role que sur TodoTaskRequest. */
+        Instant clientCreatedAt
 ) {
 }

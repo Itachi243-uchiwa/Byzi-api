@@ -65,6 +65,17 @@ public class TodoTask extends BaseEntity {
     @Column(name = "done_at")
     private Instant doneAt;
 
+    /**
+     * Instant ou l'utilisateur a ECRIT l'element sur son appareil, fourni par le client.
+     * <p>
+     * Distinct de {@code createdAt} (audit : arrivee sur le serveur). Nullable pour les lignes
+     * anterieures et les clients qui ne l'envoient pas ; le mapper retombe alors sur createdAt.
+     * Renseigne a la CREATION uniquement - une mise a jour venue d'un autre appareil ne
+     * reecrit pas la date d'ecriture.
+     */
+    @Column(name = "client_created_at")
+    private Instant clientCreatedAt;
+
     /** Tombstone de synchronisation, meme role que sur {@link AppBlockRule}. */
     @Column(name = "deleted_at")
     private Instant deletedAt;
