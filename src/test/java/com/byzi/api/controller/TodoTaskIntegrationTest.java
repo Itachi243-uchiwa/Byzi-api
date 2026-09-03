@@ -16,9 +16,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -68,6 +70,11 @@ class TodoTaskIntegrationTest {
         return objectMapper.writeValueAsString(new TodoTaskRequest(
                 title, null, "2026-08-31", "2026-09-06", done, done ? clientUpdatedAt : null,
                 clientUpdatedAt, clientUpdatedAt));
+    }
+
+    /** Jour ISO « AAAA-MM-JJ » d'un instant, en UTC — le fuseau dans lequel il est serialise. */
+    private String isoDay(Instant instant) {
+        return instant.atZone(ZoneOffset.UTC).toLocalDate().toString();
     }
 
     private void upsert(String token, UUID id, String payload, int expectedStatus) throws Exception {
@@ -137,8 +144,10 @@ class TodoTaskIntegrationTest {
 
         upsert(tokenA, id, payload, 200);
 
+        // On compare le JOUR, pas l'instant : c'est ce que l'app affiche, et ca evite
+        // de dependre du format exact d'un Instant serialise par Jackson.
         mockMvc.perform(get("/api/v1/todos/{id}", id).header("Authorization", "Bearer " + tokenA))
-                .andExpect(jsonPath("$.createdAt").value(writtenYesterday.toString()));
+                .andExpect(jsonPath("$.createdAt").value(startsWith(isoDay(writtenYesterday))));
     }
 
     /**
@@ -155,7 +164,7 @@ class TodoTaskIntegrationTest {
         upsert(tokenA, id, payload, 200);
 
         mockMvc.perform(get("/api/v1/todos/{id}", id).header("Authorization", "Bearer " + tokenA))
-                .andExpect(jsonPath("$.createdAt").value(org.hamcrest.Matchers.not(future.toString())));
+                .andExpect(jsonPath("$.createdAt").value(startsWith(isoDay(Instant.now()))));
     }
 
     /** Last-write-wins : une ecriture plus ancienne que l'etat serveur ne s'applique pas. */
