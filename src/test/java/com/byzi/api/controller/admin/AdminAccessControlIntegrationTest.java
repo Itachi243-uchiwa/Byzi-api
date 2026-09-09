@@ -68,7 +68,7 @@ class AdminAccessControlIntegrationTest {
         // La feuille de style et le logo sont charges par la page de connexion elle-meme,
         // donc avant toute authentification : les proteger les ferait rediriger vers /login
         // et la page s'afficherait sans style ni logo.
-        mockMvc.perform(get("/admin/css/byzi-admin.css")).andExpect(status().isOk());
+        mockMvc.perform(get("/admin/css/dopamyn-admin.css")).andExpect(status().isOk());
         mockMvc.perform(get("/admin/images/logo.png")).andExpect(status().isOk());
     }
 

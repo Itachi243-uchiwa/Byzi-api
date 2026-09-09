@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Journalisation pendant les tests.
+
+  Le probleme resolu ici : plusieurs tests fabriquent DELIBEREMENT une exception et la
+  donnent au code a tester pour verifier qu'il la traite bien. GlobalExceptionHandlerTest
+  lui passe une NullPointerException et verifie ensuite qu'aucun detail interne n'atteint
+  le client - c'est un test de securite. Mais le gestionnaire, faisant son travail,
+  journalise la trace complete : la sortie de `mvn test` se retrouve donc pleine de piles
+  d'appels alarmantes SOUS des lignes "Failures: 0, Errors: 0".
+
+  Consequence concrete, constatee le 2026-09-09 : on croit la suite cassee alors qu'elle
+  est verte, et surtout un VRAI echec devient impossible a reperer au milieu du bruit.
+
+  On coupe donc les deux journaux qui crient sans rien apprendre. Tout le reste de
+  l'application reste a INFO : si un test echoue pour une raison qu'un log expliquerait,
+  ce log est toujours la.
+-->
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} %-5level %logger{36} -- %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Les exceptions volontairement provoquees par les tests du gestionnaire d'erreurs. -->
+    <logger name="com.byzi.api.exception.GlobalExceptionHandler" level="OFF"/>
+
+    <!-- Hibernate annonce chaque violation de contrainte que les tests declenchent expres
+         (unicite d'appleSub, d'eventId...) avec une pile complete. Ces violations SONT le
+         comportement attendu : c'est ce qui prouve que le dedoublonnage tient. -->
+    <logger name="org.hibernate.engine.jdbc.spi.SqlExceptionHelper" level="OFF"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>
