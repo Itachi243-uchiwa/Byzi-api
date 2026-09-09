@@ -1,88 +1,69 @@
-name: Deploiement Render (preproduction mobile)
+name: Deploiement OVH VPS (production)
 
-# Deploiement de l'API Byzi sur Render, avec la base PostgreSQL managee de Render.
+# Deploiement de l'API Byzi sur le VPS OVHcloud, via SSH + Docker Compose.
 #
-# Objectif : une fois le service cree, tu ne touches PLUS QUE les secrets GitHub
-# (Settings -> Secrets and variables -> Actions). Le workflow pousse les variables
-# d'environnement vers Render, declenche le deploiement, attend qu'il soit "live",
-# puis verifie que l'API repond vraiment - c'est cette derniere etape qui donne
-# l'URL a coller dans l'app iOS.
+# Difference fondamentale avec l'ancien workflow Render : la source de verite des
+# secrets n'est PLUS GitHub. Sur Render, ce workflow poussait les variables d'environnement
+# a chaque deploiement (l'API Render les recevait via PUT). Sur le VPS, les secrets vivent
+# UNE FOIS dans le fichier ~/Byzi-api/.env, sur le serveur lui-meme (cf. guide de deploiement
+# §10) - ce workflow ne les touche jamais et n'a donc besoin d'aucun des anciens secrets
+# applicatifs (DB_URL, JWT_SECRET, REVENUECAT_WEBHOOK_SECRET, etc.). Modifier un secret
+# applicatif se fait desormais a la main sur le serveur (nano ~/Byzi-api/.env), pas ici.
 #
-# Pourquoi GitHub est la source de verite des variables et non le dashboard Render :
-# une variable ajoutee a la main dans une interface web n'est ni revue, ni tracee, ni
-# reproductible sur un second environnement. Le PUT ci-dessous REMPLACE l'integralite
-# des variables du service a chaque deploiement ; ce qui n'est pas dans ce fichier
-# n'existe pas sur Render.
+# Ce que ce workflow fait, dans l'ordre : verifie que les tests passent, se connecte en
+# SSH au VPS, recupere le dernier commit de main, reconstruit et relance les conteneurs
+# Docker, puis sonde l'API en HTTPS pour confirmer qu'elle repond vraiment (un conteneur
+# "Up" ne veut pas dire qu'il sert des reponses correctes - une migration Flyway ratee ou
+# un secret manquant dans le .env produit un conteneur vivant qui repond en erreur).
 #
-# --- Creation du service (une seule fois, a la main) -------------------------------
-#   1. Render -> New -> PostgreSQL. Noter l'"Internal Database URL".
-#   2. Render -> New -> Web Service -> connecter ce depot.
-#        Language        : Docker            (le Dockerfile multi-etapes est a la racine)
-#        Health Check Path : /actuator/health (sinon Render sonde "/", qui repond 401)
-#        Auto-Deploy     : Off               (c'est CE workflow qui declenche, sinon un
-#                                             deploiement partirait avant les tests ET
-#                                             avant la synchronisation des variables)
-#   3. Relever l'ID du service (srv-xxxxxxxx) dans l'URL du dashboard.
+# --- Prerequis, a faire une seule fois, a la main -----------------------------------
+#   1. Le VPS est configure et accessible en SSH (cf. guide de deploiement, §1 a §9).
+#   2. Le fichier ~/Byzi-api/.env existe deja sur le serveur avec les vrais secrets de
+#      production (POSTGRES_PASSWORD, JWT_SECRET, REVENUECAT_WEBHOOK_SECRET, etc.).
+#   3. Une cle SSH dediee au CI/CD a ete generee sur le VPS et ajoutee a son propre
+#      ~/.ssh/authorized_keys (jamais la cle personnelle du developpeur) :
+#        ssh-keygen -t ed25519 -f ~/.ssh/github_actions_deploy -C "github-actions-byzi" -N ""
+#        cat ~/.ssh/github_actions_deploy.pub >> ~/.ssh/authorized_keys
+#   4. Le repo Git est deja clone sur le serveur dans ~/Byzi-api avec une deploy key
+#      GitHub en lecture seule (cf. guide, §9) - ce workflow ne fait qu'un "git pull",
+#      jamais un clone initial.
 #
-# --- Secrets GitHub obligatoires ---------------------------------------------------
-#   RENDER_API_KEY             : Render -> Account Settings -> API Keys
-#   RENDER_SERVICE_ID          : srv-xxxxxxxx, visible dans l'URL du dashboard
-#   DB_URL                     : AU FORMAT JDBC, que Render ne fournit pas tel quel.
-#                                Render donne postgresql://user:pass@host/base ;
-#                                il faut le convertir en :
-#                                jdbc:postgresql://host:5432/base
-#                                (l'utilisateur et le mot de passe partent dans les deux
-#                                secrets ci-dessous, jamais dans l'URL)
-#   DB_USERNAME                : utilisateur de la base Render
-#   DB_PASSWORD                : mot de passe de la base Render
-#   JWT_SECRET                 : au moins 32 octets, verifie au demarrage par JwtService.
-#                                  openssl rand -base64 48
-#   REVENUECAT_WEBHOOK_SECRET  : dashboard RevenueCat, champ "Authorization header".
-#                                Aucune valeur par defaut en profil prod : l'application
-#                                refuse de demarrer sans lui, et c'est voulu.
-#   CORS_ALLOWED_ORIGINS       : origines du back-office / de la landing, separees par des
-#                                virgules. Jamais "*". L'app iOS n'est PAS concernee :
-#                                un client natif n'envoie pas d'Origin, le CORS ne le
-#                                bloque donc jamais.
+# --- Secrets GitHub obligatoires (Settings -> Secrets and variables -> Actions) ----
+#   VPS_HOST      : l'adresse IPv4 du VPS (Manager OVHcloud -> VPS -> onglet General).
+#   VPS_SSH_KEY   : la cle PRIVEE generee au point 3 ci-dessus (cat ~/.ssh/github_actions_deploy),
+#                   bloc complet -----BEGIN...-----END OPENSSH PRIVATE KEY-----.
+#   VPS_USER      : nom d'utilisateur SSH sur le VPS. Chez OVH pour une image Ubuntu,
+#                   c'est "ubuntu" (pas "root", jamais utilise directement).
 #
-# --- Secrets optionnels ------------------------------------------------------------
-#   APPLE_BUNDLE_ID            : bundle id de l'app iOS (claim "aud" des tokens Apple).
-#                                Defaut applicatif : Dopamyn-APP.dopamyn-app. A definir
-#                                seulement si l'app de test est signee autrement, sinon
-#                                AppleTokenVerifier rejettera tous les tokens.
-#   ADMIN_BOOTSTRAP_APPLE_SUBS : appleSub a promouvoir ADMIN au demarrage. A remplir pour
-#                                UN deploiement, puis a vider (cf. AdminBootstrapRunner).
-#   REFERRAL_TRIAL_EXTENSION_DAYS : defaut 7.
-#
-# --- Variables de depot (Settings -> Variables), non secretes ----------------------
-#   API_DOCS_ENABLED / SWAGGER_UI_ENABLED : "true" par defaut ici, parce que cet
-#                                environnement sert justement a tester depuis le mobile et
-#                                a regenerer le client Swift depuis /v3/api-docs. Les
-#                                passer a "false" le jour ou ce service devient la vraie
-#                                production.
+# --- Variables de depot, non secretes (Settings -> Variables) ----------------------
+#   API_BASE_URL  : l'URL publique complete de l'API, ex. https://api.byzi.app - sert
+#                   uniquement au smoke-test final. A definir des que le domaine et le
+#                   Caddyfile (§11 du guide) sont en place ; sans cette variable, le
+#                   smoke-test est saute plutot que d'echouer sur une valeur vide.
 #
 # --- Ce que ce workflow ne fait PAS -------------------------------------------------
-#   Aucune etape de migration : Flyway s'execute au demarrage de l'application
-#   (spring.flyway.enabled=true) et ddl-auto vaut "validate", donc un schema non migre
-#   fait echouer le demarrage - le deploiement ne passe jamais "live" en silence.
-# -----------------------------------------------------------------------------------
+#   Aucune synchronisation de variables d'environnement (contrairement a l'ancien
+#   workflow Render) : le .env du serveur est la seule source de verite, modifie a la
+#   main. Aucune migration explicite non plus : Flyway s'execute au demarrage de
+#   l'application (spring.flyway.enabled=true), un schema non migre fait donc echouer
+#   le conteneur au demarrage plutot que de deployer silencieusement un etat casse.
+# -------------------------------------------------------------------------------------
 
 on:
   push:
     branches: [main]
   workflow_dispatch: {}
 
-# Deux deploiements simultanes sur le meme service se marchent dessus : le second
-# ecraserait les variables pendant que le premier construit encore. cancel-in-progress
-# reste a false, on ne coupe pas un deploiement deja en cours de bascule.
+# Deux deploiements simultanes se marcheraient dessus (rebuild concurrent sur le meme
+# VPS) : cancel-in-progress reste a false, on ne coupe jamais un deploiement deja en
+# cours de bascule, on attend juste que le precedent se termine avant de lancer le suivant.
 concurrency:
-  group: deploy-render
+  group: deploy-ovh-vps
   cancel-in-progress: false
 
 jobs:
-  # Garde-fou : sans ce job, une poussee sur main deploierait sans qu'aucun test ne
-  # tourne. Le job "deploy" en depend, donc un test rouge arrete la chaine avant de
-  # toucher Render.
+  # Garde-fou : sans ce job, un push sur main deploierait sans qu'aucun test ne tourne.
+  # Le job "deploy" en depend, donc un test rouge arrete la chaine avant de toucher le VPS.
   tests:
     name: Tests (bloque le deploiement si rouge)
     runs-on: ubuntu-latest
@@ -96,193 +77,76 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # "verify" et non "test" : c'est verify qui declenche le seuil de couverture
-      # JaCoCo du pom. Meme commande que la CI, pour que le filet soit identique.
+      # Meme commande que ci.yml, pour que le filet soit identique.
       - name: Build, tests et couverture
         run: ./mvnw -B verify
 
   deploy:
-    name: Synchronisation des variables + deploiement
+    name: Deploiement sur le VPS (git pull + docker compose)
     runs-on: ubuntu-latest
     needs: tests
     steps:
-      - name: Pousser les variables d'environnement vers Render
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
-
-          # "prod" et non "demo" : le profil demo amorce un jeu de donnees fictif et
-          # cree un compte admin dont le mot de passe est en clair dans le depot.
-          SPRING_PROFILES_ACTIVE: prod
-
-          # Voir le commentaire de server.port dans application.yml : Render route vers
-          # ce port precis, et l'application ne le lit que parce que la valeur est
-          # explicitement fixee ici.
-          PORT: '8080'
-
-          DB_URL: ${{ secrets.DB_URL }}
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          # Le plan gratuit de Render plafonne les connexions PostgreSQL a une valeur
-          # basse : un pool de 10 par instance suffit largement pour de la recette
-          # mobile et laisse de la marge pour un client SQL branche en parallele.
-          DB_POOL_MAX_SIZE: ${{ vars.DB_POOL_MAX_SIZE || '10' }}
-
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          REVENUECAT_WEBHOOK_SECRET: ${{ secrets.REVENUECAT_WEBHOOK_SECRET }}
-          CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
-          APPLE_BUNDLE_ID: ${{ secrets.APPLE_BUNDLE_ID }}
-          ADMIN_BOOTSTRAP_APPLE_SUBS: ${{ secrets.ADMIN_BOOTSTRAP_APPLE_SUBS }}
-          REFERRAL_TRIAL_EXTENSION_DAYS: ${{ secrets.REFERRAL_TRIAL_EXTENSION_DAYS || '7' }}
-
-          API_DOCS_ENABLED: ${{ vars.API_DOCS_ENABLED || 'true' }}
-          SWAGGER_UI_ENABLED: ${{ vars.SWAGGER_UI_ENABLED || 'true' }}
-
-          # Laisse la JVM s'ajuster a la RAM reellement accordee par Render, qui est
-          # bien inferieure a celle d'un poste de developpement.
-          JAVA_OPTS: '-XX:MaxRAMPercentage=75.0 -XX:+UseContainerSupport'
-        run: |
-          set -euo pipefail
-
-          # jq construit le tableau [{key,value}] : il echappe correctement les secrets
-          # qui contiennent des guillemets ou des sauts de ligne, ce qu'une concatenation
-          # de chaines en shell ne ferait pas.
-          body="$(jq -n \
-            --arg SPRING_PROFILES_ACTIVE        "$SPRING_PROFILES_ACTIVE" \
-            --arg PORT                          "$PORT" \
-            --arg DB_URL                        "$DB_URL" \
-            --arg DB_USERNAME                   "$DB_USERNAME" \
-            --arg DB_PASSWORD                   "$DB_PASSWORD" \
-            --arg DB_POOL_MAX_SIZE              "$DB_POOL_MAX_SIZE" \
-            --arg JWT_SECRET                    "$JWT_SECRET" \
-            --arg REVENUECAT_WEBHOOK_SECRET     "$REVENUECAT_WEBHOOK_SECRET" \
-            --arg CORS_ALLOWED_ORIGINS          "$CORS_ALLOWED_ORIGINS" \
-            --arg APPLE_BUNDLE_ID               "$APPLE_BUNDLE_ID" \
-            --arg ADMIN_BOOTSTRAP_APPLE_SUBS    "$ADMIN_BOOTSTRAP_APPLE_SUBS" \
-            --arg REFERRAL_TRIAL_EXTENSION_DAYS "$REFERRAL_TRIAL_EXTENSION_DAYS" \
-            --arg API_DOCS_ENABLED              "$API_DOCS_ENABLED" \
-            --arg SWAGGER_UI_ENABLED            "$SWAGGER_UI_ENABLED" \
-            --arg JAVA_OPTS                     "$JAVA_OPTS" \
-            '[
-               {key:"SPRING_PROFILES_ACTIVE",        value:$SPRING_PROFILES_ACTIVE},
-               {key:"PORT",                          value:$PORT},
-               {key:"DB_URL",                        value:$DB_URL},
-               {key:"DB_USERNAME",                   value:$DB_USERNAME},
-               {key:"DB_PASSWORD",                   value:$DB_PASSWORD},
-               {key:"DB_POOL_MAX_SIZE",              value:$DB_POOL_MAX_SIZE},
-               {key:"JWT_SECRET",                    value:$JWT_SECRET},
-               {key:"REVENUECAT_WEBHOOK_SECRET",     value:$REVENUECAT_WEBHOOK_SECRET},
-               {key:"CORS_ALLOWED_ORIGINS",          value:$CORS_ALLOWED_ORIGINS},
-               {key:"APPLE_BUNDLE_ID",               value:$APPLE_BUNDLE_ID},
-               {key:"ADMIN_BOOTSTRAP_APPLE_SUBS",    value:$ADMIN_BOOTSTRAP_APPLE_SUBS},
-               {key:"REFERRAL_TRIAL_EXTENSION_DAYS", value:$REFERRAL_TRIAL_EXTENSION_DAYS},
-               {key:"API_DOCS_ENABLED",              value:$API_DOCS_ENABLED},
-               {key:"SWAGGER_UI_ENABLED",            value:$SWAGGER_UI_ENABLED},
-               {key:"JAVA_OPTS",                     value:$JAVA_OPTS}
-             ]
-             | map(select(.value != ""))')"
-
-          # Les secrets optionnels non definis sont retires par le map(select(...))
-          # ci-dessus : pousser APPLE_BUNDLE_ID="" ecraserait le defaut applicatif par
-          # une chaine vide, et plus aucun token Apple ne serait accepte.
-          code="$(curl -sS -o /tmp/envput.json -w '%{http_code}' \
-            -X PUT "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/env-vars" \
-            -H "Authorization: Bearer ${RENDER_API_KEY}" \
-            -H "Content-Type: application/json" \
-            -d "$body")"
-          echo "PUT env-vars -> HTTP $code"
-          if [ "$code" -ge 300 ]; then cat /tmp/envput.json; exit 1; fi
-
-      - name: Declencher le deploiement et attendre "live"
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
-        run: |
-          set -euo pipefail
-
-          deploy_id="$(curl -sS -X POST \
-            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys" \
-            -H "Authorization: Bearer ${RENDER_API_KEY}" \
-            -H "Content-Type: application/json" \
-            -d '{"clearCache":"do_not_clear"}' | jq -r '.id')"
-          echo "Deploiement declenche : $deploy_id"
-
-          # 80 x 15s = 20 minutes. Plus genereux que pour un backend Python : la
-          # construction de l'image reconstruit le jar Maven, et Render n'a pas le
-          # cache de dependances du runner GitHub.
-          for i in $(seq 1 80); do
-            status="$(curl -sS \
-              "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys/${deploy_id}" \
-              -H "Authorization: Bearer ${RENDER_API_KEY}" | jq -r '.status')"
-            echo "[$i] statut = $status"
-            case "$status" in
-              live) echo "Deploiement live"; exit 0 ;;
-              build_failed|update_failed|canceled|pre_deploy_failed|deactivated)
-                echo "Deploiement echoue : $status"; exit 1 ;;
-            esac
-            sleep 15
-          done
-          echo "Delai depasse : le deploiement n'est toujours pas live"; exit 1
+      - name: Se connecter en SSH, mettre a jour et relancer les conteneurs
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          # Timeout genereux : "docker compose up --build" reconstruit l'image (compilation
+          # Maven incluse) sur un VPS a 2 vCPU, plus lent qu'un runner GitHub dedie.
+          command_timeout: 15m
+          script: |
+            set -euo pipefail
+            cd ~/Byzi-api
+            git pull --ff-only
+            docker compose up --build -d
+            # Nettoie les anciennes images non utilisees : sans cela, chaque deploiement
+            # laisse une image orpheline et le disque de 40 Go du VPS-1 finit par se remplir.
+            docker image prune -f
 
   smoke:
-    name: Verification de l'API et URL pour le mobile
+    name: Verification de l'API deployee
     runs-on: ubuntu-latest
     needs: deploy
     steps:
-      # Un statut "live" cote Render signifie que le conteneur a demarre, pas que
-      # l'application sert des reponses correctes : une erreur Flyway ou un secret
-      # manquant produit un conteneur vivant qui repond 503 sur toutes les routes.
-      # Cette etape est ce qui distingue "deploye" de "utilisable depuis le telephone".
-      - name: Sonder l'API deployee
+      # Un "docker compose up" reussi signifie que les conteneurs ont demarre, pas que
+      # l'application sert des reponses correctes derriere Caddy. Cette etape est ce qui
+      # distingue "deploye" de "utilisable depuis le telephone".
+      - name: Sonder l'API en HTTPS
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          BASE_URL: ${{ vars.API_BASE_URL }}
         run: |
           set -euo pipefail
 
-          # L'URL est lue depuis l'API Render plutot que stockee en secret : un secret
-          # de plus a maintenir, c'est un secret de plus a oublier de mettre a jour le
-          # jour ou le service est recree.
-          base_url="$(curl -sS "https://api.render.com/v1/services/${RENDER_SERVICE_ID}" \
-            -H "Authorization: Bearer ${RENDER_API_KEY}" \
-            | jq -r '.serviceDetails.url')"
-          if [ -z "$base_url" ] || [ "$base_url" = "null" ]; then
-            echo "URL du service introuvable"; exit 1
+          if [ -z "${BASE_URL:-}" ]; then
+            echo "Variable de depot API_BASE_URL non definie - smoke-test saute."
+            echo "A definir des que le domaine et Caddy sont en place (Settings -> Variables)."
+            exit 0
           fi
 
-          # Sur le plan gratuit, l'instance se met en veille apres 15 minutes sans
-          # trafic : la premiere requete reveille le conteneur et peut demander pres
-          # d'une minute. D'ou les tentatives repetees plutot qu'un unique curl.
-          for i in $(seq 1 20); do
+          for i in $(seq 1 12); do
             code="$(curl -sS -o /tmp/health.json -w '%{http_code}' \
-              --max-time 60 "${base_url}/actuator/health" || echo 000)"
+              --max-time 30 "${BASE_URL}/actuator/health" || echo 000)"
             echo "[$i] GET /actuator/health -> $code"
             [ "$code" = "200" ] && break
             sleep 10
           done
           if [ "$code" != "200" ]; then cat /tmp/health.json || true; exit 1; fi
 
-          # /v3/api-docs est la source du client Swift de l'app iOS : s'il ne repond
-          # pas, la recette mobile est bloquee meme si /health est vert.
-          docs_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 60 \
-            "${base_url}/v3/api-docs")"
+          docs_code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
+            "${BASE_URL}/v3/api-docs")"
           echo "GET /v3/api-docs -> $docs_code"
           [ "$docs_code" = "200" ] || exit 1
 
-          # Ecrit dans le resume de l'execution GitHub : l'URL est ainsi lisible
-          # depuis le telephone, sans avoir a ouvrir les journaux du job.
           {
-            echo "## API Byzi deployee"
+            echo "## API Byzi deployee (VPS OVH)"
             echo ""
             echo "| | |"
             echo "|---|---|"
-            echo "| Base URL (a coller dans l'app iOS) | \`${base_url}\` |"
-            echo "| Sante | ${base_url}/actuator/health |"
-            echo "| Swagger | ${base_url}/swagger-ui.html |"
-            echo "| OpenAPI (client Swift) | ${base_url}/v3/api-docs |"
-            echo "| Back-office | ${base_url}/admin |"
-            echo "| Webhook RevenueCat | ${base_url}/api/v1/webhooks/revenuecat |"
-            echo ""
-            echo "Plan gratuit : l'instance s'endort apres 15 min sans trafic."
-            echo "La premiere requete depuis le telephone peut mettre ~50 s a repondre."
+            echo "| Base URL (a coller dans l'app iOS) | \`${BASE_URL}\` |"
+            echo "| Sante | ${BASE_URL}/actuator/health |"
+            echo "| Swagger | ${BASE_URL}/swagger-ui.html |"
+            echo "| OpenAPI (client Swift) | ${BASE_URL}/v3/api-docs |"
+            echo "| Back-office | ${BASE_URL}/admin |"
+            echo "| Webhook RevenueCat | ${BASE_URL}/api/v1/webhooks/revenuecat |"
           } >> "$GITHUB_STEP_SUMMARY"
