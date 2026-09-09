@@ -1,0 +1,43 @@
+# Reverse proxy public de l'API Dopamyn (VPS OVH).
+#
+# Versionne le 2026-09-09 : ce fichier n'existait que sur le serveur. A 47 octets il
+# etait facile a reecrire de memoire, mais il porte deux choses qu'on ne devine pas -
+# le nom de domaine exact qui recoit le certificat, et la regle d'en-tete dont depend
+# la limitation de debit. Perdre le VPS, c'etait les perdre.
+#
+# Il ne contient aucun secret : un nom d'hote public et une adresse interne.
+#
+# --- Ce que Caddy fait tout seul ---------------------------------------------------
+# HTTPS automatique : Caddy demande et renouvelle un certificat Let's Encrypt pour le
+# nom ci-dessous, et redirige http:// vers https://. Deux conditions, remplies ici :
+# l'enregistrement DNS A de api.dopamyn.app pointe sur ce VPS, et les ports 80 et 443
+# lui sont publies (cf. le service `caddy` de docker-compose.yml). Le port 80 sert au
+# defi ACME : le fermer casserait le renouvellement, silencieusement, 60 jours plus tard.
+
+api.dopamyn.app {
+
+	encode zstd gzip
+
+	# `api` est le nom du service dans docker-compose.yml, donc le DNS interne du
+	# reseau Compose. Pas `localhost`, qui designerait le conteneur Caddy lui-meme,
+	# ni le port publie de l'hote - l'API n'ecoute que sur 127.0.0.1 cote hote,
+	# precisement pour que ce proxy soit la seule porte d'entree publique.
+	reverse_proxy api:8080 {
+
+		# X-Forwarded-For est ECRASE, jamais complete.
+		#
+		# C'est le prerequis que `application-prod.yml` enonce noir sur blanc, et il
+		# n'est pas cosmetique. Spring lit cet en-tete (forward-headers-strategy:
+		# framework) pour retrouver l'IP reelle du client, et RateLimitingFilter s'en
+		# sert comme cle de comptage. Si un client peut y glisser une valeur de son
+		# choix, il change de cle a chaque requete et la limitation de debit ne limite
+		# plus rien - y compris sur /admin/login, la seule authentification par mot de
+		# passe du systeme.
+		#
+		# On ne s'en remet donc pas au comportement par defaut de `reverse_proxy`, qui
+		# a change selon les versions de Caddy et qui, dans plusieurs d'entre elles,
+		# AJOUTE l'IP du pair a la valeur recue au lieu de la remplacer. `{remote_host}`
+		# est l'adresse du pair TCP : elle ne se falsifie pas.
+		header_up X-Forwarded-For {remote_host}
+	}
+}

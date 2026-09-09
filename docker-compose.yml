@@ -98,7 +98,14 @@ services:
       BYZI_ADMIN_BOOTSTRAP_EMAIL: ${BYZI_ADMIN_BOOTSTRAP_EMAIL:-}
       BYZI_ADMIN_BOOTSTRAP_PASSWORD: ${BYZI_ADMIN_BOOTSTRAP_PASSWORD:-}
     ports:
-      - "${API_PORT:-8080}:8080"
+      # Lie a 127.0.0.1, comme la base. Caddy joint l'API par le reseau interne de
+      # compose (http://api:8080), jamais par le port de l'hote : publier 8080 sur
+      # toutes les interfaces rendait donc l'API joignable en HTTP EN CLAIR sur
+      # http://<ip-du-vps>:8080, court-circuitant le TLS de Caddy — et Docker perce
+      # UFW par ses propres regles iptables, donc le pare-feu ne le montrait pas.
+      # Sur 127.0.0.1, `curl localhost:8080` marche toujours pour deboguer depuis
+      # le serveur, et rien n'est expose au dehors.
+      - "127.0.0.1:${API_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/actuator/health"]
       interval: 15s
@@ -107,19 +114,19 @@ services:
       retries: 5
     restart: unless-stopped
 
-    caddy:
-      image: caddy:2-alpine
-      container_name: byzi-caddy
-      ports:
-        - "80:80"
-        - "443:443"
-      volumes:
-        - ./Caddyfile:/etc/caddy/Caddyfile
-        - caddy-data:/data
-        - caddy-config:/config
-      depends_on:
-        - api
-      restart: unless-stopped
+  caddy:
+    image: caddy:2-alpine
+    container_name: byzi-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
 
 volumes:
   byzi-db-data:
