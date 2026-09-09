@@ -77,6 +77,18 @@ public class AppleServerNotificationService {
         this.subscriptionService = subscriptionService;
         Environment env = Environment.valueOf(environment);
 
+        // Apple exige l'identifiant numerique de l'app en PRODUCTION : c'est ce qui lui
+        // permet de verifier que la notification concerne bien CETTE app. Sans lui, la
+        // bibliotheque leve une exception a la construction du bean - un echec de
+        // demarrage opaque, au pire endroit pour decouvrir qu'une variable manque.
+        // On le dit ici, avec le nom de la variable a remplir.
+        if (env == Environment.PRODUCTION && appAppleId == null) {
+            throw new IllegalStateException(
+                    "APPLE_APP_ID est obligatoire quand APPLE_ENVIRONMENT vaut PRODUCTION. "
+                    + "C'est l'identifiant numerique de l'app dans App Store Connect "
+                    + "(App Information > General Information > Apple ID).");
+        }
+
         try (InputStream rootCa = new ClassPathResource(ROOT_CA).getInputStream()) {
             this.verifier = new SignedDataVerifier(
                     Set.of(rootCa.readAllBytes()).stream()

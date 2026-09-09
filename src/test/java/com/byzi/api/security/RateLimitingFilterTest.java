@@ -18,7 +18,7 @@ import static org.mockito.Mockito.verify;
 
 /**
  * Protection anti brute-force des surfaces ouvertes (OWASP API4:2023) : authentification de
- * l'app, connexion au back-office et webhook RevenueCat.
+ * l'app, connexion au back-office et notifications serveur d'Apple.
  */
 class RateLimitingFilterTest {
 
@@ -139,12 +139,12 @@ class RateLimitingFilterTest {
 
     @Test
     void webhookIsLimitedButFarAboveHumanPace() throws Exception {
-        // RevenueCat appelle depuis un petit nombre d'IP fixes, pour TOUS les abonnes a la
+        // Apple appelle pour TOUS les abonnes a la
         // fois : le plafond du webhook doit laisser passer un trafic sans commune mesure avec
         // celui d'un formulaire de connexion, sous peine de perdre des evenements de
         // facturation. Il borne le debit, il n'imite pas un rythme humain.
         for (int i = 0; i < MAX_REQUESTS * 10; i++) {
-            assertThat(callOnce("/api/v1/webhooks/revenuecat", "10.0.0.9").getStatus()).isEqualTo(200);
+            assertThat(callOnce("/api/v1/webhooks/apple", "10.0.0.9").getStatus()).isEqualTo(200);
         }
     }
 
@@ -157,10 +157,10 @@ class RateLimitingFilterTest {
                 List.of(new RateLimitingFilter.Surface("/api/v1/webhooks/", 3)));
 
         for (int i = 0; i < 3; i++) {
-            assertThat(call(narrow, "POST", "/api/v1/webhooks/revenuecat", "10.0.0.20").getStatus())
+            assertThat(call(narrow, "POST", "/api/v1/webhooks/apple", "10.0.0.20").getStatus())
                     .isEqualTo(200);
         }
-        assertThat(call(narrow, "POST", "/api/v1/webhooks/revenuecat", "10.0.0.20").getStatus())
+        assertThat(call(narrow, "POST", "/api/v1/webhooks/apple", "10.0.0.20").getStatus())
                 .isEqualTo(429);
     }
 

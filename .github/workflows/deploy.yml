@@ -7,8 +7,9 @@ name: Deploiement OVH VPS (production)
 # a chaque deploiement (l'API Render les recevait via PUT). Sur le VPS, les secrets vivent
 # UNE FOIS dans le fichier ~/Byzi-api/.env, sur le serveur lui-meme (cf. guide de deploiement
 # §10) - ce workflow ne les touche jamais et n'a donc besoin d'aucun des anciens secrets
-# applicatifs (DB_URL, JWT_SECRET, REVENUECAT_WEBHOOK_SECRET, etc.). Modifier un secret
+# applicatifs (DB_URL, JWT_SECRET, etc.). Modifier un secret
 # applicatif se fait desormais a la main sur le serveur (nano ~/Byzi-api/.env), pas ici.
+# Les secrets GitHub ne servent donc plus qu'a l'ACCES SSH au serveur.
 #
 # Ce que ce workflow fait, dans l'ordre : verifie que les tests passent, se connecte en
 # SSH au VPS, recupere le dernier commit de main, reconstruit et relance les conteneurs
@@ -19,7 +20,19 @@ name: Deploiement OVH VPS (production)
 # --- Prerequis, a faire une seule fois, a la main -----------------------------------
 #   1. Le VPS est configure et accessible en SSH (cf. guide de deploiement, §1 a §9).
 #   2. Le fichier ~/Byzi-api/.env existe deja sur le serveur avec les vrais secrets de
-#      production (POSTGRES_PASSWORD, JWT_SECRET, REVENUECAT_WEBHOOK_SECRET, etc.).
+#      production. Le modele complet et commente est .env.example, a la racine du depot.
+#      Trois variables n'ont PAS de valeur par defaut et font echouer `docker compose up`
+#      si elles manquent - c'est deliberé, un demarrage bruyant valant mieux qu'un
+#      demarrage silencieux en mode demonstration sur des donnees reelles :
+#        SPRING_PROFILES_ACTIVE=prod   (le defaut valait "demo" : jeu de donnees fictif
+#                                       ET compte admin dont le mot de passe est ecrit
+#                                       en clair dans les journaux)
+#        POSTGRES_PASSWORD             (le defaut valait "byzi")
+#        JWT_SECRET                    (le defaut valait la cle de dev de ce depot)
+#      A ne pas oublier non plus, meme si elles ont un defaut :
+#        APPLE_ENVIRONMENT=PRODUCTION  (SANDBOX fait refuser silencieusement toutes les
+#                                       notifications de facturation reelles)
+#        APPLE_APP_ID                  (obligatoire des que l'environnement est PRODUCTION)
 #   3. Une cle SSH dediee au CI/CD a ete generee sur le VPS et ajoutee a son propre
 #      ~/.ssh/authorized_keys (jamais la cle personnelle du developpeur) :
 #        ssh-keygen -t ed25519 -f ~/.ssh/github_actions_deploy -C "github-actions-byzi" -N ""
@@ -148,5 +161,5 @@ jobs:
             echo "| Swagger | ${BASE_URL}/swagger-ui.html |"
             echo "| OpenAPI (client Swift) | ${BASE_URL}/v3/api-docs |"
             echo "| Back-office | ${BASE_URL}/admin |"
-            echo "| Webhook RevenueCat | ${BASE_URL}/api/v1/webhooks/revenuecat |"
+            echo "| Notifications App Store V2 | ${BASE_URL}/api/v1/webhooks/apple |"
           } >> "$GITHUB_STEP_SUMMARY"

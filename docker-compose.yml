@@ -1,17 +1,29 @@
 # =============================================================================
-# Byzi - environnement de developpement complet (EPIC-00.5)
+# Byzi - pile applicative complete (API + PostgreSQL)
 #
+#   cp .env.example .env    # OBLIGATOIRE, y compris en local
 #   docker compose up --build
-#   -> back-office : http://localhost:8080/admin   (admin@byzi.app / byzi-demo)
+#
+#   -> back-office   : http://localhost:8080/admin
 #   -> API + Swagger : http://localhost:8080/swagger-ui.html
-#   -> PostgreSQL : localhost:5432 (byzi / byzi)
 #
-# Le profil applicatif est "demo" : il amorce un jeu de donnees fictif pour que le
-# back-office ne soit pas vide au premier demarrage. Les variables DB_* ci-dessous
-# redirigent ce profil vers PostgreSQL au lieu du H2 local, si bien que le meme jeu
-# de donnees s'execute sur le vrai SGBD de production.
+# ATTENTION : depuis le passage au VPS (2026-09-09), ce fichier n'est plus un
+# compose de developpement — c'est LE runtime de production. Les valeurs par
+# defaut de developpement qu'il portait sont donc devenues des failles :
 #
-# Passer SPRING_PROFILES_ACTIVE=dev pour demarrer sur une base vide.
+#   • SPRING_PROFILES_ACTIVE valait "demo" par defaut. Un .env incomplet sur le
+#     serveur faisait donc demarrer la PRODUCTION en mode demonstration :
+#     DemoDataSeeder amorcait des comptes fictifs et un administrateur
+#     admin@byzi.app / byzi-demo, dont le mot de passe est ecrit en clair dans
+#     les journaux de demarrage.
+#   • JWT_SECRET retombait sur la valeur de developpement ecrite dans ce depot.
+#     Les jetons de production auraient ete signes avec une cle publique.
+#   • POSTGRES_PASSWORD retombait sur "byzi", avec le port 5432 publie.
+#
+# Ces trois variables n'ont donc PLUS de valeur par defaut : la syntaxe ${VAR:?}
+# fait echouer `docker compose up` avec un message clair si elles manquent. Un
+# demarrage qui echoue bruyamment vaut infiniment mieux qu'un demarrage qui
+# reussit en mode demo sur des donnees reelles.
 # =============================================================================
 
 services:
@@ -22,11 +34,15 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-byzi}
       POSTGRES_USER: ${POSTGRES_USER:-byzi}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-byzi}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant — copier .env.example en .env}
     ports:
-      # Expose pour pouvoir brancher un client SQL (DBeaver, psql, IntelliJ) sur la
-      # base de developpement depuis la machine hote.
-      - "${POSTGRES_PORT:-5432}:5432"
+      # Lie a 127.0.0.1 et non a 0.0.0.0 : un client SQL local (DBeaver, psql,
+      # IntelliJ) s'y branche toujours, mais le port n'est plus joignable depuis
+      # l'exterieur du VPS. Sans cette adresse, Docker ouvre le port sur toutes
+      # les interfaces ET perce le pare-feu UFW, qu'il contourne par ses propres
+      # regles iptables — une base de production exposee sans qu'aucune regle de
+      # pare-feu ne le laisse deviner.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - byzi-db-data:/var/lib/postgresql/data
     healthcheck:
@@ -51,21 +67,36 @@ services:
         # migration sur une base qui n'accepte pas encore de requetes.
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-demo}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:?SPRING_PROFILES_ACTIVE manquant — "prod" sur le serveur, "demo" en local}
 
       # "db" est le nom du service : c'est le DNS interne du reseau compose, pas
       # localhost - qui, depuis le conteneur api, designerait l'api elle-meme.
       DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-byzi}
       DB_DRIVER: org.postgresql.Driver
       DB_USERNAME: ${POSTGRES_USER:-byzi}
-      DB_PASSWORD: ${POSTGRES_PASSWORD:-byzi}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant}
 
-      # Valeurs de developpement. En production, ces secrets viennent du gestionnaire
-      # de secrets de la plateforme d'hebergement, jamais d'un fichier du depot.
-      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-key-at-least-32-bytes-long}
-      REVENUECAT_WEBHOOK_SECRET: ${REVENUECAT_WEBHOOK_SECRET:-docker-dev-revenuecat-secret}
+      # Aucune valeur par defaut : ce fichier tourne en production.
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET manquant — openssl rand -base64 48}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:8080}
       REFERRAL_TRIAL_EXTENSION_DAYS: ${REFERRAL_TRIAL_EXTENSION_DAYS:-7}
+
+      # --- App Store Server Notifications V2 -------------------------------
+      # APPLE_ENVIRONMENT filtre REELLEMENT : le verificateur d'Apple rejette une
+      # notification dont l'environnement ne correspond pas. Rester sur SANDBOX
+      # en production fait donc refuser silencieusement tous les evenements de
+      # facturation reels — renouvellements et remboursements compris.
+      APPLE_BUNDLE_ID: ${APPLE_BUNDLE_ID:-Dopamyn-APP.dopamyn-app}
+      APPLE_ENVIRONMENT: ${APPLE_ENVIRONMENT:-SANDBOX}
+      # Obligatoire des que APPLE_ENVIRONMENT vaut PRODUCTION.
+      APPLE_APP_ID: ${APPLE_APP_ID:-}
+
+      # --- Premier administrateur du back-office ---------------------------
+      # Vides par defaut : sans eux, aucun compte admin n'est cree, et c'est
+      # voulu — il n'existe deliberement aucun identifiant par defaut. A remplir
+      # pour UN demarrage, puis a vider (cf. AdminBootstrap).
+      BYZI_ADMIN_BOOTSTRAP_EMAIL: ${BYZI_ADMIN_BOOTSTRAP_EMAIL:-}
+      BYZI_ADMIN_BOOTSTRAP_PASSWORD: ${BYZI_ADMIN_BOOTSTRAP_PASSWORD:-}
     ports:
       - "${API_PORT:-8080}:8080"
     healthcheck:

@@ -172,7 +172,7 @@ class ReferralIntegrationTest {
 
     @Test
     void payingSubscriberCannotRedeem() throws Exception {
-        // Les jours s'ecrivent dans subscription_expires_at, que le webhook RevenueCat suivant
+        // Les jours s'ecrivent dans subscription_expires_at, que la notification Apple suivante
         // reecrirait : accepter la demande annoncerait une recompense qui disparaitrait.
         redeem(newUser(SubscriptionStatus.ACTIVE), codeOf(newUser(SubscriptionStatus.TRIAL)), 409);
     }
@@ -198,7 +198,7 @@ class ReferralIntegrationTest {
                 .andExpect(jsonPath("$.referrerRewarded").value(false));
 
         // L'utilisation est enregistree - le back-office doit voir la conversion - mais le
-        // compte payant n'est pas touche : son acces est pilote par RevenueCat.
+        // compte payant n'est pas touche : son acces est pilote par l'abonnement Apple.
         assertThat(userRepository.findById(referrer.getId()).orElseThrow().getSubscriptionExpiresAt())
                 .isEqualTo(before);
         assertThat(redemptionRepository.countByReferrer_Id(referrer.getId())).isEqualTo(1);

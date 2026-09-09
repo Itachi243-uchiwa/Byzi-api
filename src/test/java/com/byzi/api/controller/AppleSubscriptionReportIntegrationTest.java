@@ -25,9 +25,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * POST /api/v1/me/subscription/apple : ce que l'app iOS rapporte apres lecture de
- * Transaction.currentEntitlements (StoreKit 2 pur, pas de SDK RevenueCat cote client, decision
- * 2026-09-03). Cf. la javadoc d'AppleSubscriptionReportRequest et
- * SubscriptionService.applyClientReportedApplePurchase pour la nuance avec un webhook verifie.
+ * Transaction.currentEntitlements (StoreKit 2 pur, aucun SDK tiers). Cf. la javadoc
+ * d'AppleSubscriptionReportRequest et SubscriptionService.applyClientReportedApplePurchase
+ * pour la nuance avec une App Store Server Notification, elle cryptographiquement verifiee.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -137,7 +137,7 @@ class AppleSubscriptionReportIntegrationTest {
                         .header("Authorization", auth).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk());
         // Reouverture de l'app, meme transaction toujours active : pas une erreur, juste un
-        // rapport redondant, silencieusement ignore (comme un rejeu de webhook RevenueCat).
+        // rapport redondant, silencieusement ignore (comme un rejeu de notification Apple).
         mockMvc.perform(post("/api/v1/me/subscription/apple")
                         .header("Authorization", auth).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk());

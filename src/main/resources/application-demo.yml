@@ -4,7 +4,7 @@
 # installer PostgreSQL ni a configurer RevenueCat.
 #
 #   ./mvnw spring-boot:run -Dspring-boot.run.profiles=demo
-#   http://localhost:8080/admin  -  admin@byzi.app / byzi-demo
+#   http://localhost:8080/admin  -  admin@dopamyn.app / byzi-demo
 #
 # Ce profil est volontairement isole de "dev" : les identifiants ci-dessous sont en clair et
 # le jeu de donnees est fictif. Il ne doit jamais etre active ailleurs qu'en local.
@@ -46,7 +46,7 @@ byzi:
       allowed-origins: "http://localhost:3000"
   # Identifiants du compte admin cree par DemoDataSeeder.
   demo:
-    admin-email: "admin@byzi.app"
+    admin-email: "admin@dopamyn.app"
     admin-password: "byzi-demo"
 
 springdoc:
