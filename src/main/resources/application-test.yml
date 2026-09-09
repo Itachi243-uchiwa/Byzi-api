@@ -31,6 +31,8 @@ byzi:
       jwks-url: "https://appleid.apple.com/auth/keys"
     cors:
       allowed-origins: "http://localhost:3000"
-  webhook:
-    revenuecat:
-      secret: "test-revenuecat-webhook-secret"
+
+  apple:
+    notifications:
+      bundle-id: "Dopamyn-APP.dopamyn-app"
+      environment: "SANDBOX"

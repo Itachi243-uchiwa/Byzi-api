@@ -187,6 +187,10 @@ public class SecurityConfig {
                         // Les ressources statiques du back-office doivent rester accessibles
                         // sans session : elles sont chargees par la page de connexion
                         // elle-meme, donc avant toute authentification.
+                        // Apple appelle sans jeton : la protection de cet endpoint est la SIGNATURE
+                        // du corps, verifiee jusqu'au certificat racine d'Apple, pas un secret
+                        // partage (cf. AppleServerNotificationController).
+                        .requestMatchers("/api/v1/webhooks/apple").permitAll()
                         .requestMatchers("/admin/login", "/admin/css/**", "/admin/images/**").permitAll()
                         // Deny-by-default : le reste du back-office exige un role d'administration,
                         // quel qu'il soit. Le detail de ce que chaque role a le droit de FAIRE est
@@ -247,7 +251,6 @@ public class SecurityConfig {
                         // Webhooks tiers : appeles par un serveur, jamais par un utilisateur, donc
                         // aucun JWT possible. L'authentification se fait par secret partage verifie
                         // dans le controller (WebhookAuthenticator), pas par cette chaine.
-                        .requestMatchers("/api/v1/webhooks/**").permitAll()
                         // Le dispatch vers /error doit rester ouvert : c'est par lui que passent les
                         // erreurs de TOUTE l'application, back-office compris. L'exiger authentifie
                         // transformerait chaque 404 en 401, y compris pour un visiteur non connecte,

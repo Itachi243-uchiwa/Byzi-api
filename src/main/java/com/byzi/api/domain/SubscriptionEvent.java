@@ -19,7 +19,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Trace immuable d'une transition d'abonnement recue de RevenueCat.
+ * Trace immuable d'une transition d'abonnement.
  * <p>
  * N'herite pas de BaseEntity : un evenement n'est jamais modifie apres son insertion, donc
  * une colonne updated_at auditee n'aurait aucun sens ici.

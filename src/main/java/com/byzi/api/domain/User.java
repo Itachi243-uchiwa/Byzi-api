@@ -46,7 +46,7 @@ public class User extends BaseEntity {
     private java.time.Instant lastLoginAt;
 
     /**
-     * Date de fin de l'abonnement ou de l'essai, telle que communiquee par RevenueCat (ou
+     * Date de fin de l'abonnement ou de l'essai, telle que rapportee par l'app iOS (ou
      * prolongee manuellement par le support, story 09.5). Source de verite serveur : l'app
      * ne doit jamais deduire l'etat d'abonnement d'une date locale, qui serait triviale a
      * contourner en changeant l'horloge de l'appareil (AC de l'EPIC-07).

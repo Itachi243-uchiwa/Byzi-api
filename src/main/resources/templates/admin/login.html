@@ -4,10 +4,10 @@
 <body>
 <div class="login">
     <div class="login__panel">
-        <!--/* Logo affiche en entier : le fichier porte deja le mark, le wordmark et la
-               tagline, inutile de les redoubler en HTML. */-->
-        <img class="login__logo" th:src="@{/admin/images/logo.png}"
-             alt="Byzi - Become the manager of your time.">
+        <div class="login__brand">
+            <span th:replace="~{admin/fragments/layout :: mark}"></span>
+            <span class="login__wordmark">Dopamyn</span>
+        </div>
         <p class="login__tagline">Back-office - acces reserve</p>
 
         <!--/* Message unique quelle que soit la cause de l'echec (compte inconnu, mot de

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/layout :: pageHead('Mon compte')}"></head>
+<body>
+<div class="layout">
+    <aside th:replace="~{admin/fragments/layout :: sidebar('account')}"></aside>
+
+    <div class="main">
+        <header th:replace="~{admin/fragments/layout :: topbar( 'Mon compte', 'Mot de passe', 'Le seul mot de passe du systeme - celui qui ouvre le back-office')}"></header>
+
+        <div class="content">
+            <div class="alert alert--success" th:if="${success}" th:text="${success}"></div>
+            <div class="alert alert--danger" th:if="${error}" th:text="${error}"></div>
+
+            <div class="card">
+                <div class="card__header">
+                    <h2 class="card__title">Changer mon mot de passe</h2>
+                </div>
+                <div class="card__body">
+                    <!--/* Rappel utile plutot que decoratif : si le compte vient du bootstrap de
+                           demarrage, son mot de passe est encore dans la configuration du serveur.
+                           Le changer ici est ce qui permet de retirer la variable. */-->
+                    <p class="hint">
+                        Si ce compte a ete cree au demarrage par <code>byzi.admin.bootstrap.*</code>,
+                        changez le mot de passe ici, puis retirez les deux variables d’environnement
+                        du serveur. Elles n’ont plus aucune raison d’exister ensuite.
+                    </p>
+
+                    <form method="post" th:action="@{/admin/account/password}" class="form">
+                        <div class="field">
+                            <label class="field__label" for="currentPassword">Mot de passe actuel</label>
+                            <input class="field__input" type="password" id="currentPassword"
+                                   name="currentPassword" autocomplete="current-password" required>
+                        </div>
+                        <div class="field">
+                            <label class="field__label" for="newPassword">Nouveau mot de passe</label>
+                            <input class="field__input" type="password" id="newPassword"
+                                   name="newPassword" autocomplete="new-password"
+                                   minlength="12" required>
+                            <p class="field__hint">12 caracteres minimum.</p>
+                        </div>
+                        <div class="field">
+                            <label class="field__label" for="confirmPassword">Confirmer</label>
+                            <input class="field__input" type="password" id="confirmPassword"
+                                   name="confirmPassword" autocomplete="new-password"
+                                   minlength="12" required>
+                        </div>
+                        <button class="btn btn--primary" type="submit">Enregistrer</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
