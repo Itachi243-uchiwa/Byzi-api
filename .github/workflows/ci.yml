@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Installer le JDK 21
         uses: actions/setup-java@v4
@@ -63,7 +63,7 @@ jobs:
     needs: build
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Verifie que le Dockerfile multi-etapes construit bien de bout en bout. On ne
       # pousse pas l'image ici : la publication vers un registre viendra avec le
@@ -81,7 +81,7 @@ jobs:
     continue-on-error: true
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-java@v4
         with:
