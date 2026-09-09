@@ -134,7 +134,7 @@ public class AccountExportService {
      * Evenements d'abonnement de l'utilisateur. Contrairement aux sessions/streaks/regles,
      * SubscriptionEventRepository n'expose pas de variante paginee (hors perimetre de ce lot :
      * ce depot appartient au lot abonnements). C'est acceptable ici sans y toucher : un compte
-     * accumule au plus quelques dizaines d'evenements RevenueCat sur toute sa duree de vie (une
+     * accumule au plus quelques dizaines d'evenements d'abonnement sur toute sa duree de vie (une
      * ligne par transition d'abonnement), plusieurs ordres de grandeur en dessous du volume de
      * sessions de focus qui justifie le paginage ci-dessus.
      */

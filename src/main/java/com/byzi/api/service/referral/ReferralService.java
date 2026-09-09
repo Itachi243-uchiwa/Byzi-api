@@ -26,13 +26,13 @@ import java.util.UUID;
  * et d'autre a chaque utilisation.
  * <p>
  * <b>Ce que ce service refuse d'accorder, et pourquoi.</b> Les jours sont ajoutes en ecrivant
- * {@code subscriptionExpiresAt}, le meme champ que celui pilote par les webhooks RevenueCat.
- * Sur un compte dont l'abonnement est actif chez RevenueCat, cette ecriture serait ecrasee
+ * {@code subscriptionExpiresAt}, le meme champ que celui pilote par les rapports StoreKit.
+ * Sur un compte dont l'abonnement Apple est actif, cette ecriture serait ecrasee
  * par le webhook suivant : la recompense serait annoncee a l'utilisateur puis disparaitrait
  * silencieusement. Un abonne payant ne recoit donc PAS de jours - ni comme filleul (sa
  * demande est refusee, l'offre s'adressant aux comptes en essai ou expires), ni comme parrain
  * (l'utilisation est enregistree, la recompense non). Accorder ces jours pour de bon suppose
- * de passer par les entitlements promotionnels de l'API RevenueCat, ce que le backend ne fait
+ * de passer par une offre promotionnelle App Store, ce que le backend ne fait
  * pas encore.
  * <p>
  * La protection contre les abus se limite ici a "un compte ne peut etre parraine qu'une
@@ -61,7 +61,7 @@ public class ReferralService {
      */
     private static final int MAX_GENERATION_ATTEMPTS = 5;
 
-    /** Etats dans lesquels l'acces est paye et pilote par RevenueCat. */
+    /** Etats dans lesquels l'acces est paye et pilote par l'abonnement Apple. */
     private static final Set<SubscriptionStatus> PAID_STATUSES =
             Set.of(SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE_PERIOD);
 
@@ -115,7 +115,7 @@ public class ReferralService {
         }
         if (isPaid(referred)) {
             // Refuse plutot qu'accepte sans effet : le filleul verrait sa demande reussir et
-            // n'obtiendrait rien, le webhook RevenueCat suivant reecrivant sa date d'acces.
+            // n'obtiendrait rien, le rapport StoreKit suivant reecrivant sa date d'acces.
             throw new ForbiddenOperationException(
                     "L'offre de parrainage s'adresse aux comptes en essai ou expires");
         }

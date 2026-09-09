@@ -14,10 +14,11 @@ byzi:
       secret: ${JWT_SECRET:dev-only-secret-key-at-least-32-bytes-long-do-not-deploy}
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8080}
-  webhook:
-    revenuecat:
-      secret: ${REVENUECAT_WEBHOOK_SECRET:dev-only-revenuecat-secret}
-
 springdoc:
   swagger-ui:
     enabled: true
+
+  apple:
+    notifications:
+      bundle-id: "Dopamyn-APP.dopamyn-app"
+      environment: "SANDBOX"

@@ -96,12 +96,32 @@ byzi:
     # campagne ne doit demander ni deploiement ni mise a jour de l'app.
     trial-extension-days: ${REFERRAL_TRIAL_EXTENSION_DAYS:7}
 
-  webhook:
-    revenuecat:
-      # Secret partage a recopier dans le dashboard RevenueCat (champ "Authorization header").
-      # Seule protection de l'endpoint webhook : sans lui, n'importe qui pourrait s'octroyer
-      # un abonnement actif. Injecte par variable d'environnement, jamais commite.
-      secret: ${REVENUECAT_WEBHOOK_SECRET}
+  # App Store Server Notifications V2 (story 07.10).
+  #
+  # URL a renseigner dans App Store Connect ▸ App Information ▸ App Store Server
+  # Notifications, version 2 : https://<host>/api/v1/webhooks/apple
+  #
+  # `app-apple-id` est OBLIGATOIRE en PRODUCTION (Apple l'utilise pour verifier que la
+  # notification concerne bien cette app) et inutile en SANDBOX.
+  apple:
+    notifications:
+      bundle-id: ${APPLE_BUNDLE_ID:Dopamyn-APP.dopamyn-app}
+      app-apple-id: ${APPLE_APP_ID:}
+      environment: ${APPLE_ENVIRONMENT:SANDBOX}
+
+  # Premier administrateur du back-office (voir AdminBootstrap).
+  #
+  # Vide par defaut : sans ces deux valeurs, aucun compte admin n'est cree. Il n'existe
+  # deliberement AUCUN identifiant par defaut - un couple connu de tous serait une porte
+  # ouverte sur la suppression de comptes.
+  #
+  # Demarrage a froid : renseigner les deux variables, demarrer une fois, se connecter sur
+  # /admin, CHANGER LE MOT DE PASSE, puis retirer les variables. Les admins suivants se
+  # creent depuis le back-office, ou chaque promotion laisse une trace d'audit.
+  admin:
+    bootstrap:
+      email: ${BYZI_ADMIN_BOOTSTRAP_EMAIL:}
+      password: ${BYZI_ADMIN_BOOTSTRAP_PASSWORD:}
 
 management:
   endpoints:

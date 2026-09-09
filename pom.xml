@@ -134,6 +134,29 @@
             <artifactId>caffeine</artifactId>
         </dependency>
 
+        <!-- App Store Server Library (Apple) — verification des App Store Server
+             Notifications V2 (story 07.10).
+             Bibliotheque PREMIERE PARTIE, publiee par Apple. Elle porte `SignedDataVerifier`,
+             qui verifie la chaine de certificats x5c du JWS jusqu'a l'AppleRootCA-G3, controle
+             le bundle id et l'environnement. Ecrire cette verification a la main serait du code
+             de securite fait maison sur le chemin critique de la facturation : le genre de
+             chose qu'on n'improvise pas. -->
+        <dependency>
+            <groupId>com.apple.itunes.storekit</groupId>
+            <artifactId>app-store-server-library</artifactId>
+            <version>3.4.0</version>
+        </dependency>
+
+        <!-- Apache POI — export .xlsx du back-office (story 09.8).
+             SXSSF et non XSSF : le classeur s'ecrit en flux, avec une fenetre de lignes bornee
+             en memoire. Un export de tous les comptes ne doit pas dependre du nombre de comptes
+             pour tenir dans le tas — meme raison que le cache borne juste au-dessus. -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.4.1</version>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

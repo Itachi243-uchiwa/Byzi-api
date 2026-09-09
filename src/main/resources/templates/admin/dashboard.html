@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<html lang="fr" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{admin/fragments/layout :: pageHead('Tableau de bord')}"></head>
 <body>
 <div class="layout">
@@ -9,6 +10,17 @@
         <header th:replace="~{admin/fragments/layout :: topbar( 'Pilotage', 'Tableau de bord', 'Etat du parc de comptes et de la conversion')}"></header>
 
         <div class="content">
+            <!--/* L'export est offert ICI, au-dessus des chiffres : c'est le meme geste que
+                   les lire, en emportant le detail. Le bouton n'apparait que pour les roles
+                   qui y ont droit - l'afficher a un support qui recevrait un 403 en cliquant
+                   serait une promesse non tenue. */-->
+            <div class="toolbar" sec:authorize="hasAnyRole('ADMIN','ADMIN_FINANCE')">
+                <a class="btn btn--secondary" th:href="@{/admin/export}" download>
+                    Exporter en .xlsx
+                </a>
+                <span class="toolbar__hint">Comptes, abonnements en cours, activations, annulations.</span>
+            </div>
+
             <div class="grid grid--kpi">
                 <div class="kpi">
                     <div class="kpi__label">Comptes total</div>

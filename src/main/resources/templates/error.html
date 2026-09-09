@@ -14,8 +14,10 @@
 <body>
 <div class="login">
     <div class="login__panel">
-        <img class="login__logo" th:src="@{/admin/images/logo.png}"
-             alt="Byzi - Become the manager of your time.">
+        <div class="login__brand">
+            <span th:replace="~{admin/fragments/layout :: mark}"></span>
+            <span class="login__wordmark">Dopamyn</span>
+        </div>
         <p class="login__tagline">Back-office</p>
 
         <div class="alert alert--error">

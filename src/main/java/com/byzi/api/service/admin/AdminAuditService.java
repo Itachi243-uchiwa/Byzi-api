@@ -24,6 +24,8 @@ public class AdminAuditService {
     public static final String ACTION_MARK_REFUNDED = "MARK_REFUNDED";
     public static final String ACTION_DELETE_ACCOUNT = "DELETE_ACCOUNT";
     public static final String ACTION_CHANGE_ROLE = "CHANGE_ROLE";
+    public static final String ACTION_CHANGE_PASSWORD = "CHANGE_PASSWORD";
+    public static final String ACTION_EXPORT = "EXPORT_XLSX";
 
     private final AdminAuditLogRepository auditLogRepository;
 

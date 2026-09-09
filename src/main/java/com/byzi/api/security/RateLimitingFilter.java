@@ -67,15 +67,12 @@ public class RateLimitingFilter extends OncePerRequestFilter {
      *       celle qui donne acces a la suppression de comptes. Elle n'etait pas protegee : le
      *       filtre n'etait branche que sur la chaine API, que le back-office ne traverse
      *       pas.</li>
-     *   <li>{@code /api/v1/webhooks/} - endpoint necessairement ouvert, dont le secret partage
-     *       pouvait etre martele sans limite. Son plafond est deux ordres de grandeur au-dessus
-     *       des deux autres, et c'est deliberé : RevenueCat appelle depuis un petit nombre
-     *       d'IP fixes, pour TOUS les abonnes a la fois, avec des rejeux en rafale apres une
-     *       panne reseau. Un plafond a taille humaine y ferait perdre des evenements de
-     *       facturation - un abonne qui renouvelle et perd son acces. A 600 par minute, le
-     *       trafic legitime passe tandis qu'une recherche exhaustive du secret reste hors de
-     *       portee : le secret est long et aleatoire, le plafond ne fait que borner le
-     *       debit.</li>
+     *   <li>{@code /api/v1/webhooks/} - App Store Server Notifications V2. Endpoint
+     *       necessairement ouvert, dont la protection est la signature du corps. Son plafond
+     *       est deux ordres de grandeur au-dessus des deux autres, et c'est deliberé : Apple
+     *       appelle pour TOUS les abonnes a la fois, avec des rejeux en rafale apres une panne
+     *       reseau. Un plafond a taille humaine y ferait perdre des evenements de facturation -
+     *       un abonne qui renouvelle et perd son acces.</li>
      * </ul>
      */
     private static final List<Surface> DEFAULT_SURFACES = List.of(

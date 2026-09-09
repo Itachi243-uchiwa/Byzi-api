@@ -68,9 +68,9 @@ public class AccountProfileService {
      * Regle retenue :
      * - ACTIVE / TRIAL : acces uniquement si une date d'expiration existe ET n'est pas encore
      *   passee. Un compte fraichement cree est TRIAL par defaut (User.subscriptionStatus) mais
-     *   sans subscriptionExpiresAt tant qu'aucun webhook RevenueCat n'a confirme l'essai
+     *   sans subscriptionExpiresAt tant qu'aucun rapport StoreKit n'a confirme l'essai
      *   (AuthService.createUser ne renseigne jamais ce champ) : il n'a donc PAS acces avant
-     *   cette confirmation, coherent avec "seul RevenueCat cree un acces reel".
+     *   cette confirmation, coherent avec "seul un achat confirme cree un acces reel".
      * - GRACE_PERIOD : acces accorde INCONDITIONNELLEMENT, sans regarder la date. L'utilisateur
      *   a bien souscrit, seul le prelevement a echoue - c'est la meme convention que
      *   AdminDashboardService.POST_TRIAL_STATUSES, qui traite GRACE_PERIOD comme "converti" au

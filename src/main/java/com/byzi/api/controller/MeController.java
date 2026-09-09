@@ -3,6 +3,7 @@ package com.byzi.api.controller;
 import com.byzi.api.dto.account.MeResponse;
 import com.byzi.api.dto.account.UpdateProfileRequest;
 import com.byzi.api.dto.subscription.AppleSubscriptionReportRequest;
+import com.byzi.api.dto.subscription.AppleSubscriptionRevocationRequest;
 import com.byzi.api.security.SecurityUtils;
 import com.byzi.api.service.AccountProfileService;
 import com.byzi.api.service.subscription.SubscriptionService;
@@ -43,21 +44,32 @@ public class MeController {
 
     @Operation(summary = "Met a jour le prenom de l'utilisateur courant",
             description = "Seul le prenom est modifiable ici. L'email vient d'Apple, le statut "
-                    + "d'abonnement de RevenueCat, le role du back-office.")
+                    + "d'abonnement des rapports StoreKit, le role du back-office.")
     @PutMapping
     public ResponseEntity<MeResponse> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(accountProfileService.updateProfile(SecurityUtils.currentUserId(), request));
     }
 
     @Operation(summary = "Rapporte un achat StoreKit lu localement par l'app iOS",
-            description = "Pas de SDK RevenueCat cote client (EPIC-07, 2026-09-03) : l'app "
-                    + "rapporte ici ce qu'elle a lu dans Transaction.currentEntitlements. "
-                    + "userId vient du JWT, jamais du corps - un compte ne peut rapporter que "
-                    + "pour lui-meme. Voir SubscriptionService.applyClientReportedApplePurchase "
-                    + "pour la nuance avec un webhook verifie par Apple.")
+            description = "StoreKit 2 pur, aucun SDK tiers : l'app rapporte ici ce qu'elle a lu "
+                    + "dans Transaction.currentEntitlements. userId vient du JWT, jamais du "
+                    + "corps - un compte ne peut rapporter que pour lui-meme. Le rapport n'est "
+                    + "pas verifie contre Apple ; durcissement prevu via App Store Server "
+                    + "Notifications V2.")
     @PostMapping("/subscription/apple")
     public ResponseEntity<MeResponse> reportAppleSubscription(@Valid @RequestBody AppleSubscriptionReportRequest request) {
         subscriptionService.applyClientReportedApplePurchase(SecurityUtils.currentUserId(), request);
+        return ResponseEntity.ok(accountProfileService.currentProfile(SecurityUtils.currentUserId()));
+    }
+
+    @Operation(summary = "Signale qu'une transaction Apple a ete revoquee (remboursement, retrait familial)",
+            description = "Coupe l'acces immediatement (statut EXPIRED, expiration effacee). Sans "
+                    + "cet appel, un compte rembourse conservait l'acces jusqu'a la date "
+                    + "d'expiration initiale - jusqu'a un an sur la formule annuelle.")
+    @PostMapping("/subscription/apple/revoked")
+    public ResponseEntity<MeResponse> reportAppleRevocation(@Valid @RequestBody AppleSubscriptionRevocationRequest request) {
+        subscriptionService.applyClientReportedRevocation(
+                SecurityUtils.currentUserId(), request.transactionId(), request.revokedAt());
         return ResponseEntity.ok(accountProfileService.currentProfile(SecurityUtils.currentUserId()));
     }
 }

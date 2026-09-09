@@ -44,10 +44,6 @@ byzi:
       jwks-url: "https://appleid.apple.com/auth/keys"
     cors:
       allowed-origins: "http://localhost:3000"
-  webhook:
-    revenuecat:
-      secret: "demo-revenuecat-secret"
-
   # Identifiants du compte admin cree par DemoDataSeeder.
   demo:
     admin-email: "admin@byzi.app"
@@ -56,3 +52,8 @@ byzi:
 springdoc:
   swagger-ui:
     enabled: true
+
+  apple:
+    notifications:
+      bundle-id: "Dopamyn-APP.dopamyn-app"
+      environment: "SANDBOX"

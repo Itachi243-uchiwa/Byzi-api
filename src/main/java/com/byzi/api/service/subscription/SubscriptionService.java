@@ -4,7 +4,6 @@ import com.byzi.api.domain.SubscriptionEvent;
 import com.byzi.api.domain.SubscriptionStatus;
 import com.byzi.api.domain.User;
 import com.byzi.api.dto.subscription.AppleSubscriptionReportRequest;
-import com.byzi.api.dto.subscription.RevenueCatWebhookRequest;
 import com.byzi.api.exception.ResourceNotFoundException;
 import com.byzi.api.repository.SubscriptionEventRepository;
 import com.byzi.api.repository.UserRepository;
@@ -19,16 +18,27 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Applique les transitions d'abonnement, recues de RevenueCat ou rapportees par le client iOS
- * (EPIC-07.5).
+ * Applique les transitions d'abonnement rapportees par le client iOS (EPIC-07.5).
  * <p>
  * Le serveur est la SEULE source de verite de l'etat d'abonnement : l'app iOS ne fait que le
  * lire (voir {@code AccountProfileService.hasActiveAccess}). C'est l'exigence explicite de
  * l'EPIC-07 ("l'etat d'abonnement n'est jamais deduit d'une date locale sur l'appareil"), qui
  * interdit de faire confiance a une expiration calculee cote client - trivialement contournable
- * en reculant l'horloge systeme. Un rapport client (voir {@link #applyClientReportedApplePurchase})
- * alimente cette meme source de verite, mais n'est pas cryptographiquement verifie comme l'est
- * un webhook RevenueCat : voir sa Javadoc pour la nuance.
+ * en reculant l'horloge systeme.
+ * <p>
+ * <b>RevenueCat a ete retire le 2026-09-09.</b> L'app est en StoreKit 2 pur, iOS uniquement,
+ * avec deux produits dans un seul groupe : RevenueCat n'apportait ni la validation d'achat
+ * (StoreKit 2 verifie deja la transaction au niveau de l'OS) ni rien dont le MVP ait besoin -
+ * sa vraie valeur est ailleurs, dans les entitlements multiplateformes, l'analytics et l'A/B
+ * testing de paywall. Restait un endpoint public a proteger, un secret partage a faire tourner
+ * et 1% du revenu suivi, pour rien.
+ * <p>
+ * Ce qu'il faisait et qui manque vraiment - apprendre les evenements de cycle de vie quand
+ * l'app ne tourne pas - se traite par <b>App Store Server Notifications V2</b>, first-party et
+ * gratuit. En attendant, {@link #applyClientReportedApplePurchase} et
+ * {@link #applyClientReportedRevocation} couvrent ce que le client peut constater lui-meme.
+ * {@code applyTransition} reste volontairement agnostique de la source : brancher ASSN V2
+ * consistera a y mapper un evenement de plus, rien d'autre.
  */
 @Slf4j
 @Service
@@ -36,53 +46,22 @@ import java.util.UUID;
 public class SubscriptionService {
 
     private static final String CLIENT_REPORT_EVENT_TYPE = "APPLE_CLIENT_REPORT";
+    private static final String CLIENT_REVOCATION_EVENT_TYPE = "APPLE_CLIENT_REVOCATION";
 
     private final UserRepository userRepository;
     private final SubscriptionEventRepository subscriptionEventRepository;
-    private final RevenueCatEventMapper eventMapper;
-
-    /**
-     * @return true si l'evenement a modifie l'etat du compte, false s'il a ete ignore
-     *         (doublon, type non pertinent, utilisateur inconnu, evenement perime).
-     *         Dans les deux cas l'appelant doit repondre 2xx : signaler une erreur a
-     *         RevenueCat pour un evenement qu'on a deliberement ignore le ferait rejouer
-     *         en boucle.
-     */
-    @Transactional
-    public boolean applyWebhookEvent(RevenueCatWebhookRequest.Event event) {
-        Optional<SubscriptionStatus> newStatus = eventMapper.toStatus(event.type(), event.periodType());
-        if (newStatus.isEmpty()) {
-            log.info("Evenement RevenueCat de type '{}' sans effet sur l'abonnement, ignore", event.type());
-            return false;
-        }
-
-        UUID userId = parseUserId(event.appUserId());
-        if (userId == null) {
-            return false;
-        }
-
-        // occurred_at est not null en base : a defaut d'horodatage RevenueCat, la date de
-        // reception est la meilleure approximation disponible.
-        Instant occurredAt = Optional.ofNullable(toInstant(event.eventTimestampMs())).orElseGet(Instant::now);
-        Instant expiresAt = toInstant(event.expirationAtMs());
-
-        return applyTransition(userId, event.id(), event.type(), newStatus.get(), expiresAt, occurredAt);
-    }
 
     /**
      * Rapport envoye par l'app iOS apres lecture de {@code Transaction.currentEntitlements}
-     * (StoreKit 2 pur, pas de SDK RevenueCat cote client — voir la Javadoc de
-     * {@link AppleSubscriptionReportRequest}). Authentifie via le JWT ({@code userId} ne vient
-     * jamais du corps de la requete, cf. {@code MeController}), donc un utilisateur ne peut
-     * rapporter que POUR LUI-MEME — mais **pas** verifie cryptographiquement contre Apple : un
-     * client compromis pourrait mentir sur son propre acces. Accepte pour le lancement en
-     * l'absence de compte RevenueCat ; durcissement naturel plus tard (verification serveur de
-     * la transaction signee, ou App Store Server Notifications V2).
+     * (StoreKit 2 pur, aucun SDK tiers). Authentifie via le JWT ({@code userId} ne vient jamais
+     * du corps de la requete, cf. {@code MeController}), donc un utilisateur ne peut rapporter
+     * que POUR LUI-MEME — mais **pas** verifie cryptographiquement contre Apple : un client
+     * compromis pourrait mentir sur son propre acces. Durcissement prevu : App Store Server
+     * Notifications V2.
      * <p>
-     * Idempotent comme {@link #applyWebhookEvent} : {@code transactionId} porte l'unicite
-     * exactement comme {@code event.id} chez RevenueCat (un renouvellement StoreKit cree un
-     * nouveau {@code Transaction.id}, un rappel du meme achat re-soumet le meme id et est
-     * silencieusement ignore).
+     * Idempotent : {@code transactionId} porte l'unicite. Un renouvellement StoreKit cree un
+     * nouveau {@code Transaction.id} ; un rappel du meme achat re-soumet le meme id et est
+     * silencieusement ignore.
      */
     @Transactional
     public boolean applyClientReportedApplePurchase(UUID userId, AppleSubscriptionReportRequest report) {
@@ -92,7 +71,57 @@ public class SubscriptionService {
     }
 
     /**
-     * Coeur transactionnel partage par les deux sources d'evenements : dedoublonnage par
+     * Remboursement ou revocation, constate par le client (story 07.9).
+     * <p>
+     * <b>Le trou que ceci ferme.</b> {@code Transaction.currentEntitlements} exclut deja les
+     * transactions revoquees, donc l'app arrete d'elle-meme d'accorder l'acces. Mais rien ne le
+     * disait au serveur : celui-ci gardait {@code hasActiveAccess} jusqu'a
+     * {@code subscriptionExpiresAt}, et la porte de l'app s'ouvre des qu'UNE des deux sources
+     * dit oui ({@code PremiumGate}). Quelqu'un qui se faisait rembourser l'annuel conservait
+     * donc Premium <b>jusqu'a un an</b>.
+     * <p>
+     * L'expiration est mise a {@code null}, pas a la date de revocation : un remboursement
+     * coupe l'acces MAINTENANT, il ne le laisse pas courir jusqu'a un terme. C'est exactement
+     * ce que fait deja le geste manuel du back-office ({@code AdminUserService.markRefunded}),
+     * et les deux doivent laisser le compte dans le meme etat.
+     * <p>
+     * Idempotent, et distinct de l'achat : l'{@code eventId} porte un prefixe propre, sans quoi
+     * la revocation d'une transaction deja rapportee serait prise pour un doublon de son achat
+     * et ignoree — c'est-a-dire precisement le cas qu'on veut traiter.
+     * <p>
+     * Limite assumee : un client qui ne se relance jamais ne rapporte jamais. Seul ASSN V2
+     * ferme ce dernier ecart, et {@code applyTransition} est pret a l'accueillir.
+     */
+    @Transactional
+    public boolean applyClientReportedRevocation(UUID userId, String transactionId, Instant revokedAt) {
+        String eventId = "apple-client-revoked:" + transactionId;
+        Instant occurredAt = revokedAt != null ? revokedAt : Instant.now();
+        return applyTransition(userId, eventId, CLIENT_REVOCATION_EVENT_TYPE,
+                SubscriptionStatus.EXPIRED, null, occurredAt);
+    }
+
+    /**
+     * Applique une App Store Server Notification V2 deja <b>verifiee</b> (story 07.10).
+     * <p>
+     * Le contrat est different des deux autres entrees : ici la source est cryptographiquement
+     * prouvee - chaine de certificats remontee jusqu'a la racine d'Apple - alors qu'un rapport
+     * client est simplement authentifie. C'est la seule source qui apprend au serveur ce qui se
+     * passe <b>quand l'app ne tourne pas</b> : renouvellements, remboursements, periodes de
+     * grace.
+     * <p>
+     * La verification appartient a {@code AppleServerNotificationService} et pas a cette
+     * methode : ce service ne connait ni JWS ni x5c, et il ne doit pas commencer. Il applique
+     * une transition, quelle qu'en soit l'origine.
+     */
+    @Transactional
+    public boolean applyServerNotification(UUID userId, String eventId, String eventType,
+                                           SubscriptionStatus newStatus,
+                                           Instant expiresAt, Instant occurredAt) {
+        return applyTransition(userId, eventId, eventType, newStatus, expiresAt, occurredAt);
+    }
+
+    /**
+     * Coeur transactionnel partage par toutes les sources d'evenements : dedoublonnage par
      * {@code eventId}, garde anti-desordre, ecriture de {@code User} + trace {@link SubscriptionEvent}.
      */
     private boolean applyTransition(
@@ -192,18 +221,4 @@ public class SubscriptionService {
                 .isPresent();
     }
 
-    private UUID parseUserId(String appUserId) {
-        try {
-            return UUID.fromString(appUserId);
-        } catch (IllegalArgumentException e) {
-            // app_user_id anonyme RevenueCat ($RCAnonymousID:...) : l'utilisateur n'a pas
-            // encore de compte Byzi, il n'y a rien a mettre a jour.
-            log.info("Webhook RevenueCat avec un app_user_id non exploitable, ignore");
-            return null;
-        }
-    }
-
-    private Instant toInstant(Long epochMillis) {
-        return epochMillis == null ? null : Instant.ofEpochMilli(epochMillis);
-    }
 }
