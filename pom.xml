@@ -9,7 +9,7 @@
         <artifactId>spring-boot-starter-parent</artifactId>
         <!-- NOTE: vérifier la dernière version patch disponible sur Maven Central avant le premier build,
              cet environnement de génération n'a pas accès au réseau vers repo.maven.apache.org. -->
-        <version>4.1.0</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
