@@ -187,10 +187,6 @@ public class SecurityConfig {
                         // Les ressources statiques du back-office doivent rester accessibles
                         // sans session : elles sont chargees par la page de connexion
                         // elle-meme, donc avant toute authentification.
-                        // Apple appelle sans jeton : la protection de cet endpoint est la SIGNATURE
-                        // du corps, verifiee jusqu'au certificat racine d'Apple, pas un secret
-                        // partage (cf. AppleServerNotificationController).
-                        .requestMatchers("/api/v1/webhooks/apple").permitAll()
                         .requestMatchers("/admin/login", "/admin/css/**", "/admin/images/**").permitAll()
                         // Deny-by-default : le reste du back-office exige un role d'administration,
                         // quel qu'il soit. Le detail de ce que chaque role a le droit de FAIRE est
@@ -248,9 +244,16 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Auth Apple + refresh : doivent rester accessibles sans JWT prealable.
                         .requestMatchers("/api/v1/auth/apple", "/api/v1/auth/refresh").permitAll()
-                        // Webhooks tiers : appeles par un serveur, jamais par un utilisateur, donc
-                        // aucun JWT possible. L'authentification se fait par secret partage verifie
-                        // dans le controller (WebhookAuthenticator), pas par cette chaine.
+                        // Webhook Apple : appele par un serveur, jamais par un utilisateur, donc
+                        // aucun JWT possible. Sa protection est la SIGNATURE du corps, verifiee
+                        // jusqu'au certificat racine d'Apple (cf. AppleServerNotificationController).
+                        //
+                        // Il DOIT vivre dans cette chaine. Il a passe des semaines dans celle du
+                        // back-office, limitee a /admin/** par son securityMatcher : la regle n'y
+                        // etait jamais evaluee, et chaque notification d'Apple repondait 401 ici,
+                        // avant le controleur, sans une ligne de log. Constate en production le
+                        // 2026-10-06 sur le premier achat reel.
+                        .requestMatchers("/api/v1/webhooks/apple").permitAll()
                         // Le dispatch vers /error doit rester ouvert : c'est par lui que passent les
                         // erreurs de TOUTE l'application, back-office compris. L'exiger authentifie
                         // transformerait chaque 404 en 401, y compris pour un visiteur non connecte,

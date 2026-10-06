@@ -11,6 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -46,9 +47,13 @@ class AppleServerNotificationIntegrationTest {
         mockMvc.perform(post("/api/v1/webhooks/apple")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"signedPayload\":\"pas-un-jws\"}"))
-                // 401 et non 403 : la requete est bien arrivee au controleur, qui a rejete la
-                // signature. Un 403 signalerait au contraire un blocage par la securite web.
-                .andExpect(status().isUnauthorized());
+                // Le statut seul ne prouve rien : la securite web refuse AUSSI en 401
+                // (RestAuthenticationEntryPoint), et ce test est reste vert pendant que la route
+                // etait bloquee en production. Ce qui distingue les deux, c'est le corps : le
+                // controleur rejette la signature sans rien ecrire, la securite ecrit un JSON
+                // d'erreur "unauthorized".
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().string(""));
     }
 
     @Test
