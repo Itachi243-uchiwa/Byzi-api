@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -47,6 +48,7 @@ public class SubscriptionService {
 
     private static final String CLIENT_REPORT_EVENT_TYPE = "APPLE_CLIENT_REPORT";
     private static final String CLIENT_REVOCATION_EVENT_TYPE = "APPLE_CLIENT_REVOCATION";
+    private static final Set<String> CLIENT_EVENT_TYPES = Set.of(CLIENT_REPORT_EVENT_TYPE, CLIENT_REVOCATION_EVENT_TYPE);
 
     private final UserRepository userRepository;
     private final SubscriptionEventRepository subscriptionEventRepository;
@@ -147,7 +149,7 @@ public class SubscriptionService {
         // appareils). Appliquer un evenement plus ancien que le dernier deja traite ferait
         // "revivre" un abonnement expire : un EXPIRATION suivi d'un RENEWAL retardataire mais
         // anterieur redonnerait l'acces a un compte qui ne paie plus.
-        if (isStale(userId, occurredAt)) {
+        if (isStale(userId, eventType, occurredAt)) {
             log.warn("Evenement d'abonnement {} anterieur au dernier evenement traite pour l'utilisateur {}, ignore",
                     eventId, userId);
             return false;
@@ -209,13 +211,22 @@ public class SubscriptionService {
         return userRepository.save(user);
     }
 
-    private boolean isStale(UUID userId, Instant occurredAt) {
+    private boolean isStale(UUID userId, String eventType, Instant occurredAt) {
         if (occurredAt == null) {
             // Sans horodatage exploitable, on ne peut pas ordonner : on applique l'evenement
             // plutot que de le perdre.
             return false;
         }
-        return subscriptionEventRepository.findFirstByUser_IdOrderByOccurredAtDesc(userId)
+        // Une notification Apple ne se compare qu'aux notifications Apple. Les deux sources
+        // n'ont pas la meme horloge : un rapport de l'app est date de sa RECEPTION
+        // (Instant.now()), une notification de sa SIGNATURE, qui ne change pas quand Apple la
+        // relivre. Les melanger rendait "anterieure" toute notification encore en vol des que
+        // l'app s'ouvrait - constate en production le 2026-10-06, sur le premier achat reel.
+        Optional<SubscriptionEvent> reference = CLIENT_EVENT_TYPES.contains(eventType)
+                ? subscriptionEventRepository.findFirstByUser_IdOrderByOccurredAtDesc(userId)
+                : subscriptionEventRepository.findFirstByUser_IdAndEventTypeNotInOrderByOccurredAtDesc(
+                        userId, CLIENT_EVENT_TYPES);
+        return reference
                 .map(SubscriptionEvent::getOccurredAt)
                 .filter(last -> occurredAt.isBefore(last))
                 .isPresent();
