@@ -6,7 +6,7 @@
 # Le JDK complet n'est necessaire qu'ici. Le separer de l'image finale evite
 # d'embarquer Maven, les sources et le depot de dependances dans l'artefact
 # livre - moins de poids, et surtout moins de surface d'attaque.
-FROM maven:3.9-eclipse-temurin-21 AS build
+FROM maven:3-eclipse-temurin-26 AS build
 
 WORKDIR /build
 
